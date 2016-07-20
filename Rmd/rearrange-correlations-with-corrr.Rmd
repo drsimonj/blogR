@@ -1,0 +1,80 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "posts-"
+)
+```
+
+Don't stare at your correlations in search of variable clusters when you can `rearrange()` them:
+
+```{r init-example, message = FALSE}
+library(corrr)
+mtcars %>% correlate() %>% rearrange() %>% fashion()
+```
+
+This post will explain how you can get the most from `rearrange()` for exploring correlations when using the `corrr` package.
+
+## Why rearrange?
+
+It might seem obvious to some, but rearranging correlations in a way that helps us scan for patterns can be very useful. The main reason for this is that we should always be looking at our correlations, regardless of the models we ultimately employ on the data. This is because many of our most commonly used models are methods for reducing or reinterpreting a correlation matrix (regression is a perfect example). So, while sophisticated models are useful and important, we should always be looking at the correlations. For example, looking at the correlations is an effective way to locate multicollinearity problems. Model results can be misleading if we're not familiar with the underlying correlations. So looking at correlations is important, and the purpose of rearranging them based on their clustering is to make life easier for ourselves: to more easily see patterns in the data, spot oddities, etc.
+
+## What does rearrange() do?
+
+`rearrange()` is a function provided in the `corrr` package. Like most functions from `corrr`, it takes a correlation data frame (`cor_df`) as it's first argument. This is created using `correlate()`:
+
+```{r correlate}
+d <- correlate(mtcars)
+d
+```
+
+For more details about `corrr` and `correlate()`, view the package README file, also posted [HERE](https://drsimonj.svbtle.com/explore-correlations-in-r-with-corrr).
+
+We can now rearrange this correlation data frame with `rearrange()`:
+
+```{r rearrange_1}
+rearrange(d)
+```
+
+Notice how the strongest correlations are closest to the diagonal, while the weakest are further away. This is the main purpose of `rearrange()`, which helps to find variable clusters and so on.
+
+## How is the order decided?
+
+To do this, `rearrange()` depends on `seriate()` from the [`seriation` package](https://cran.r-project.org/web/packages/seriation/index.html). `seriate()` "tries to find an linear order for objects". So the correlations are submitted to `seriate()` to find the order to rearrange them.
+
+## Changing the method
+
+Because of `seriate()`, `rearrange()` provides the `method` argument, which allows us to specify the arrangement (clustering) method. The help page for `?seriate()` provides the full list of possible methods. Here's a quick example:
+
+```{r methods}
+rearrange(d)  # the default is PCA (Principal Component Analysis).
+
+rearrange(d, method = "HC")  # Method changed to Hierarchical Clustering
+```
+
+## Using absolute values
+
+The third and, currently, final argument of `rearrange()` is `absolute`. This boolean argument specifies whether the absolute values for the correlations should be used for clustering or not. If `TRUE`, then `rearrange()` will use absolute values of the correlations to determine their order, thus ignoring correlation signs. `absolute = TRUE` by default as I consider the magnitude of the correlations to be more important than their signs when exploring for patterns. However, we can override this, forcing more negative correlations to be further from the diagonal line than more positive correlations as follows:
+
+```{r}
+rearrange(d, absolute = FALSE)
+```
+
+## Pairing with output functions
+
+I tend to use `rearrange()` as a precursor to one of the output functions provided by `corrr`. For example, use `fashion()` to print them to the screen, or `rplot()` to visualise them.
+
+```{r bonus}
+d %>% rearrange() %>% fashion()
+
+d %>% rearrange(absolute = FALSE) %>% rplot()
+
+# Squeeze in shave() for an even cleaner look
+d %>% rearrange() %>% shave() %>% fashion()
+```
+
+

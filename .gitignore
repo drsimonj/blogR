@@ -3,3 +3,4 @@
 !.gitignore
 !*/
 !*.Rmd
+.Rproj.user
