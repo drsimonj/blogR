@@ -1,0 +1,114 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "posts-"
+)
+```
+
+Earlier this week, my first package, `corrr`, was made available on CRAN. Below are the introductory instructions provided on the README for this first-release version 0.1.0. Please contribute to `corrr` on [Github](https://github.com/drsimonj/corrr) or email me your suggestions!
+
+## corrr
+
+corrr is a package for exploring **corr**elations in **R**. It makes it possible to easily perform routine tasks when exploring correlation matrices such as ignoring the diagonal, focusing on the correlations of certain variables against others, or rearranging and visualising the matrix in terms of the strength of the correlations.
+
+You can install:
+
+- the latest released version from CRAN with
+
+```{r install_cran, eval = FALSE}
+install.packages("corrr")
+```
+
+- the latest development version from github with
+
+```{r install_git, eval = FALSE}
+if (packageVersion("devtools") < 1.6) {
+  install.packages("devtools")
+}
+devtools::install_github("drsimonj/corrr")
+```
+
+## Using corrr
+
+Using `corrr` starts with `correlate()`, which acts like the base correlation function `cor()`. It differs by defaulting to pairwise deletion, and returning a correlation data frame (`cor_df`) of the following structure:
+
+- A `tbl` with an additional class, `cor_df`
+- An extra "rowname" column
+- Standardised variances (the matrix diagonal) set to missing values (`NA`) so they can be ignored.
+
+### API
+
+The corrr API is designed with data pipelines in mind (e.g., to use `%>%` from the magrittr package). After `correlate()`, the primary corrr functions take a `cor_df` as their first argument, and return a `cor_df` or `tbl` (or output like a plot). These functions serve one of three purposes:
+
+Internal changes (`cor_df` out):
+
+- `shave()` the upper or lower triangle (set to `r NA`).
+- `rearrange()` the columns and rows based on correlation strengths.
+
+Reshape structure (`tbl` or `cor_df` out):
+
+- `focus()` on select columns and rows.
+- `stretch()` into a long format.
+
+Output/visualisations (console/plot out):
+
+- `fashion()` the correlations for pretty printing.
+- `rplot()` plots the correlations.
+
+## Examples
+
+```{r example, message = FALSE, warning = FALSE}
+library(MASS)
+library(corrr)
+set.seed(1)
+
+# Simulate three columns correlating about .7 with each other
+mu <- rep(0, 3)
+Sigma <- matrix(.7, nrow = 3, ncol = 3) + diag(3)*.3
+seven <- mvrnorm(n = 1000, mu = mu, Sigma = Sigma)
+
+# Simulate three columns correlating about .4 with each other
+mu <- rep(0, 3)
+Sigma <- matrix(.4, nrow = 3, ncol = 3) + diag(3)*.6
+four <- mvrnorm(n = 1000, mu = mu, Sigma = Sigma)
+
+# Bind together
+d <- cbind(seven, four)
+colnames(d) <- paste0("v", 1:ncol(d))
+
+# Insert some missing values
+d[sample(1:nrow(d), 100, replace = TRUE), 1] <- NA
+d[sample(1:nrow(d), 200, replace = TRUE), 5] <- NA
+
+# Correlate
+x <- correlate(d)
+class(x)
+x
+```
+
+As a `tbl`, we can use functions from data frame packages like `dplyr`, `tidyr`, `ggplot2`:
+
+```{r, message = FALSE, warning = FALSE}
+library(dplyr)
+
+# Filter rows by correlation size
+x %>% filter(v1 > .6)
+```
+
+corrr functions work in pipelines (`cor_df` in; `cor_df` or `tbl` out):
+
+```{r combination, warning = FALSE, fig.height = 4, fig.width = 5}
+x <- datasets::mtcars %>%
+       correlate() %>%    # Create correlation data frame (cor_df)
+       focus(-cyl, -vs, mirror = TRUE) %>%  # Focus on cor_df without 'cyl' and 'vs'
+       rearrange(method = "HC", absolute = FALSE) %>%  # arrange by correlations
+       shave() # Shave off the upper triangle for a clean result
+
+fashion(x)
+rplot(x)
+```

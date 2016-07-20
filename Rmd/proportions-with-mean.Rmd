@@ -1,0 +1,98 @@
+---
+title: "Proportions with mean()"
+author: "Simon A Jackson"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  md_document:
+    variant: markdown_github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "post-"
+)
+```
+
+One of the most common tasks I want to do is calculate the proportion of observations (e.g., rows in a data set) that meet a particular condition. For example, what is the proportion of missing data, or people over the age of 18?
+
+There is a suprisingly easy solution to handle this problem: by combining boolean vectors and `mean()`.
+
+
+## Step 1: creating a boolean vector
+
+We start with boolean vectors, which is a vector that is `TRUE` whenever our observation meets our condition, or `FALSE` whenever it's not. We create this boolean vector by submitting our observations to some sort of conditional statement (or relevant function like `is.na()`). Let's take a look at a few examples:
+
+```{r}
+x <- letters[1:10]
+x == "b"  # return a boolean vector which is TRUE whenver x is "b"
+
+x <- 1:10
+x > 5  # TRUE whenever x is greater than 5
+
+x > 5 & x %% 2 == 0  # TRUE when x > 5 AND divisible by 2
+
+x <- c(1, 2, NA, 4)
+is.na(x) # TRUE when x is a missing value
+```
+
+If you're unsure with how the above works, take a look at this page on [R Programming Operators](http://www.programiz.com/r-programming/operator).
+
+With this under our belt, it seems simple enough to create a boolean vector that tells us when our observations meet some condition (`TRUE`) or not (`FALSE`).
+
+## Step 2: calculating the proportion of TRUE
+
+From this point, all we need to do is wrap our conditional statment inside `mean()`:
+
+```{r}
+x <- 1:10
+mean(x > 5)  # proportion of values in x greater than 5
+```
+
+How/why does this work? If you take a look at the help page with `?mean()`, you'll read that the arguement `x` can be a logical vector. But what does this mean. Well, when you use a boolean vector, `mean()` first converts it to a numeric vector. This means that every `TRUE` becomes `1`, and every `FALSE` becomes `0`:
+
+```{r}
+x <- 1:10
+as.numeric(x > 5)
+```
+
+It then computes the mean of these 1's and 0's. At this point, you just need to think a little. How is the mean calculated? Well, it's the sum of all the values, divided by their length? So the sum of a vector of 1's and 0's will be the total number of 1's! Divided by the length then gives you the proportion. As a side note, you might realise that you can use `sum()` instead of `mean()` if you want to calculate the frequency. Let's break this right down:
+
+```{r}
+x <- 1:10
+x
+
+test <- x > 5
+test
+
+as.numeric(test)
+
+sum(test)
+
+length(test)
+
+sum(test) / length(test)
+
+mean(test)
+```
+
+## Some useful examples
+
+At this point, we can apply this to all sorts of problems. Here are some examples using the mtcars data set:
+
+```{r}
+d <- mtcars
+head(d)
+
+# Proportion of rows (cars) with cyl == 6 (6 cylinders)
+mean(d$cyl == 6)
+
+# Proportions of rows (cars) with hp > 250 (horsepower over 200)
+mean(d$hp > 250)
+
+# Proportion of cars with 8-cylinders and that get more than 15 Miles/(US) gallon
+mean(d$cyl == 8 & d$hp > 15)
+```
+
+
