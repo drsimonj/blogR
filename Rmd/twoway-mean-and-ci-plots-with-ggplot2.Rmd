@@ -134,7 +134,7 @@ sum_d %>%
 
 ### Adding error bars
 
-The last piece of the puzzle is to add error bars using `geom_errorbar()`, which requires us to specify `ymin` and `ymax` for each error bar. I like to do the calculation within this function as follows:
+The last visual element to add is the error bars using `geom_errorbar()`, which requires us to specify `ymin` and `ymax` for each error bar. I like to do the calculation within this function as follows:
 
 ```{r plot-error}
 sum_d %>%
