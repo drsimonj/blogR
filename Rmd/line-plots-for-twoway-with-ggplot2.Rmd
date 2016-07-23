@@ -123,7 +123,7 @@ sum_d %>%
     geom_line()
 ```
 
-Hmm, that doesn't seem right! What's going on here? The problem is that we haven't specified how the lines should be grouped, so it's just using the raw x and y values provided to it. To handle this, we assign the `group` and `linetype` aesthetics to our second categorical variable, `am`. Note that `group` is handled in `ggplot`, but `linetype` is in `geom_line()`. These can be moved around, but having `group` in `ggplot` is important for the position adjustment discussed later.
+Hmm, that doesn't seem right! What's going on here? The problem is that we haven't specified that the lines should be grouped by transmission, so it's just using the already provided number of cylinders. To handle this, we assign the `group` and `linetype` aesthetics to our second categorical variable, `am`. Note that `group` is handled in `ggplot`, but `linetype` is in `geom_line()`. These can be moved around, but having `group` in `ggplot` is important for the position adjustment discussed later.
 
 ```{r plot-lines2}
 sum_d %>%
