@@ -1,0 +1,43 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/"
+)
+```
+
+
+
+```{r init-example, message = FALSE}
+library(corrr)
+n <- 6
+d <- data.frame(
+       gender = sample(c("male", "female"), n, replace = TRUE),
+       age    = rnorm(n, mean = 50,  sd = 20),
+       iq     = rnorm(n, mean = 100, sd = 15)
+     )
+
+# Randomly add missing values
+d$gender[sample(1:n, n / 5)] <- NA
+d$age[sample(1:n, n / 5)]    <- NA
+d$iq[sample(1:n, n / 5)]     <- NA
+sapply(d, function(col) sum(is.na(col)))  # Count of NA in each colum
+
+d
+
+fashion(d)
+```
+
+
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out my GitHub repository, [blogR](https://github.com/drsimonj/blogR).
