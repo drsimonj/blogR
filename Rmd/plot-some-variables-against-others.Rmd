@@ -1,0 +1,129 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.height = 5,
+  fig.width = 6.5
+)
+```
+
+Want to see how some of your variables relate to many others? Here's an example of just this:
+
+```{r init-example, message = FALSE}
+library(tidyr)
+library(ggplot2)
+
+mtcars %>%
+  gather(-mpg, -hp, -cyl, key = "var", value = "value") %>% 
+  ggplot(aes(x = value, y = mpg, color = hp, shape = factor(cyl))) +
+    geom_point() +
+    facet_wrap(~ var, scales = "free") +
+    theme_bw()
+```
+
+This plot shows a separate scatter plot panel for each of many variables against `mpg`; all points are coloured by `hp`, and the shapes refer to `cyl`.
+
+Let's break it down.
+
+## Some previous advice
+
+This post is an extension of a previous one that appears here: https://drsimonj.svbtle.com/quick-plot-of-all-variables.
+
+In that prior post, I explained a method for plotting the univariate distributions of many numeric variables in a data frame. This post does something very similar, but with a few tweaks that produce a very useful result. So, in general, I'll skip over a few minor parts that appear in the previous post (e.g., how to use `purrr::keep()` if you want only variables of a particular type).
+
+## Tidying our data
+
+As in the previous post, I'll mention that you might be interested in using something like a `for` loop to create each plot. Personally, however, I think this is a messy way to do it. Instead, we'll make use of the `facet_wrap()` function in the `ggplot2` package, but doing so requires some careful data prep. Thus, assuming our data frame has all the variables we're interested in, the first step is to get our data into a tidy form that is suitable for plotting.
+
+We'll do this using `gather()` from the `tidyr` package. In the previous post, we gathered all of our variables as follows (using `mtcars` as our example data set):
+
+```{r}
+library(tidyr)
+mtcars %>% gather() %>% head()
+```
+
+This gives us a `key` column with the variable names and a `value` column with their corresponding values. This works well if we only want to plot each variable by itself (e.g., to get univariate information).
+
+However, here we're interested in visualising multivariate information, with a particular focus on one or two variables. We'll start with the bivariate case. Within `gather()`, we'll first drop our variable of interest (say `mpg`) as follows:
+
+```{r}
+mtcars %>% gather(-mpg, key = "var", value = "value") %>% head()
+```
+
+We now have an `mpg` column with the values of `mpg` repeated for each variable in the `var` column. The `value` column contains the values corresponding to the variable in the `var` column. This simple extension is how we can use `gather()` to get our data into shape.
+
+## Creating the plot
+
+We now move to the `ggplot2` package in much the same way we did in the previous post. We want a scatter plot of `mpg` with each variable in the `var` column, whose values are in the `value` column. Creating a scatter plot is handled by `ggplot()` and `geom_point()`. Getting a separate panel for each variable is handled by `facet_wrap()`. We also want the scales for each panel to be "free". Otherwise, `ggplot` will constrain them all the be equal, which doesn’t make sense for plotting different variables. For a clean look, let's also add `theme_bw()`.
+
+```{r step1}
+mtcars %>%
+  gather(-mpg, key = "var", value = "value") %>%
+  ggplot(aes(x = value, y = mpg)) +
+    geom_point() +
+    facet_wrap(~ var, scales = "free") +
+    theme_bw()
+```
+
+We now have a scatter plot of every variable against `mpg`. Let's see what else we can do.
+
+## Extracting more than one variable
+
+We can layer other variables into these plots. For example, say we want to colour the points based on `hp`. To do this, we also drop `hp` within `gather()`, and then include it appropriately in the plotting stage:
+
+```{r extra1}
+mtcars %>%
+  gather(-mpg, -hp, key = "var", value = "value") %>% 
+  head()
+
+mtcars %>%
+  gather(-mpg, -hp, key = "var", value = "value") %>%
+  ggplot(aes(x = value, y = mpg, color = hp)) +
+    geom_point() +
+    facet_wrap(~ var, scales = "free") +
+    theme_bw()
+```
+
+Let's go crazy and change the point shape by `cyl`:
+
+```{r extra2}
+mtcars %>%
+  gather(-mpg, -hp, -cyl, key = "var", value = "value") %>% 
+  head()
+
+mtcars %>%
+  gather(-mpg, -hp, -cyl, key = "var", value = "value") %>%
+  ggplot(aes(x = value, y = mpg, color = hp, shape = factor(cyl))) +
+    geom_point() +
+    facet_wrap(~ var, scales = "free") +
+    theme_bw()
+```
+
+## Perks of ggplot2
+
+If you're familiar with `ggplot2`, you can go to town. For example, let's add loess lines with `stat_smooth()`:
+
+```{r bonus, warning = F}
+mtcars %>%
+  gather(-mpg, key = "var", value = "value") %>%
+  ggplot(aes(x = value, y = mpg)) +
+    geom_point() +
+    stat_smooth() +
+    facet_wrap(~ var, scales = "free") +
+    theme_bw()
+```
+
+The options are nearly endless at this point, so I'll stop here.
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
