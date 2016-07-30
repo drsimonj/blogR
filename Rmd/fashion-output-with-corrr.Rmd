@@ -6,33 +6,110 @@ output: github_document
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  fig.path = "figs/"
+  fig.path = "figs/",
+  fig.height = 3,
+  fig.width = 3
 )
 ```
 
+Tired of trying to get your data to print right or formatting it in a programme like excel? Try out `fashion()` from the `corrr` package:
 
 
 ```{r init-example, message = FALSE}
-library(corrr)
-n <- 6
 d <- data.frame(
-       gender = sample(c("male", "female"), n, replace = TRUE),
-       age    = rnorm(n, mean = 50,  sd = 20),
-       iq     = rnorm(n, mean = 100, sd = 15)
-     )
-
-# Randomly add missing values
-d$gender[sample(1:n, n / 5)] <- NA
-d$age[sample(1:n, n / 5)]    <- NA
-d$iq[sample(1:n, n / 5)]     <- NA
-sapply(d, function(col) sum(is.na(col)))  # Count of NA in each colum
-
+  gender = factor(c("Male", "Female", NA)),
+  age    = c(NA, 28.1111111, 74.3),
+  height = c(188, NA, 168.78906),
+  fte    = c(NA, .78273, .9)
+)
 d
 
+library(corrr)
 fashion(d)
 ```
 
+But how does it work and what does it do?
 
+## The inspiration: correlations and decimals
+
+The insipration for `fashion()` came from my unending frustration at getting a correlation matrix to print out exactly how I wanted. For example, printing correlations typically looks something like:
+
+```{r}
+mtcars %>% correlate()
+```
+
+But this is just plain ugly. Personally, I wanted:
+
+- Decimal places rounded to the same length (usually 2)
+- All the leading zeros removed, but keeping the decimal aligned with/without `-` for negative numbers.
+- Missing values (`NA`) to appear empty (`""`).
+
+This is exactly what fashion does:
+
+```{r}
+mtcars %>% correlate() %>% fashion()
+```
+
+And if I want to change the number of `decimal` places and have a different place holder for `NA` values (`na_print`):
+
+```{r}
+mtcars %>% correlate() %>% fashion(decimals = 1, na_print = "x")
+```
+
+## Look but don't touch
+
+There's a little bit of magic going on here, but the point to know is that `fashion()` is returning a noquote version of the original structure:
+
+```{r}
+mtcars %>% correlate() %>% fashion() %>% class()
+```
+
+That means that numbers are no longer numbers.
+
+```{r}
+mtcars %>% correlate() %>% sapply(is.numeric)
+
+mtcars %>% correlate() %>% fashion() %>% sapply(is.numeric)
+```
+
+Similarly, missing values are no longer missing values.
+
+```{r}
+mtcars %>% correlate() %>% sapply(function(i) sum(is.na(i)))
+
+mtcars %>% correlate() %>% fashion() %>% sapply(function(i) sum(is.na(i)))
+```
+
+So `fashion()` is for looking at output, not for continuing to work with it.
+
+## What to use it on
+
+`fashion()` can be used on most standard R structures such as scalars, vectors, matrices, data frames, etc:
+
+```{r}
+fashion(10.277)
+fashion(c(10.3785, NA, 87))
+fashion(matrix(1:4, nrow = 2))
+```
+
+You can also use it on non-numeric data. In this case, all `fashion()` will do is convert the data to characters, and then alter missing values:
+
+```{r}
+fashion("Hello")
+fashion(c("Hello", NA), na_print = "World")
+```
+
+Now is a good time to take a look back at the opening example to see that it works on a data frame and with a factor column.
+
+## Exporting
+
+Don't forget that it's easy to export your fashioned output with something like:
+
+```{r, eval = FALSE}
+my_data %>% fashion() %>% write.csv("fashioned_file.csv")
+```
+
+So what are you waiting for? Go forth and `fashion()`!
 
 ## Sign off
 
@@ -40,4 +117,4 @@ Thanks for reading and I hope this was useful for you.
 
 For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
 
-If you'd like the code that produced this blog, check out my GitHub repository, [blogR](https://github.com/drsimonj/blogR).
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
