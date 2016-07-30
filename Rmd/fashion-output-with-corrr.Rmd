@@ -12,7 +12,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-Tired of trying to get your data to print right or formatting it in a programme like excel? Try out `fashion()` from the `corrr` package:
+Tired of trying to get your data to print right or formatting it in a program like excel? Try out `fashion()` from the `corrr` package:
 
 
 ```{r init-example, message = FALSE}
