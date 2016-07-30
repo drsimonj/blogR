@@ -58,7 +58,7 @@ But what does this mean? Well, the plot shows **a point for each variable** rath
 
 **Each path represents a correlation** between the two variables that it joins. A blue path represents a positive correlation, and a red path represents a negative correlation. The width and transparency of the path represent the strength of the correlation (wider and less transparent = stronger correlation). For example, you can see that the positive correlation between `Ozone` and `Temp` is stronger than the positive correlation between `Ozone` and `Solar.R`.
 
-Finally, we're able to make adjustments to the correlations for which paths are plotted with the `min_cor` argument. This argument, which is set to `.30` by default, determines the minimum correlation (in absolute terms) to plot as a path. For example, lowering this to `.10` gives us:
+You'll notice that not all the possible paths are in the plot. That is, not all of our correlations are being visually represented. This is because only correlations of a certain magnitude (in absolute terms) or higher are plotted. By default, this magnitude is `.30`. So any paths that do not appear in the plot are correlations that are weaker than this (between -.30 and .30). The reason for this is so that we can visualise the strongest relationships while easily ignorning, or not being distracted by, the weakest ones. The good news is that it is possible to change this magnitude with the `min_cor` argument. This argument, which is set to `.30` by default, determines the minimum correlation (in absolute terms) to plot as a path. For example, lowering this to `.10` gives us:
 
 ```{r net-plot-2}
 airquality %>% correlate() %>% network_plot(min_cor = .1)
