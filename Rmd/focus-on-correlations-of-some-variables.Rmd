@@ -1,0 +1,127 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.height = 3,
+  fig.width = 7
+)
+```
+
+SOLVED: get the correlations of one or more variables with many others.
+
+```{r init-example, message = FALSE}
+library(corrr)
+mtcars %>% correlate() %>% focus(mpg)
+```
+
+Let's break it down.
+
+## Motivation
+
+I've noticed a lot of people asking how to do this: see [here](http://stackoverflow.com/questions/38660129/how-to-correlate-and-visualise-correlation-of-one-variable-versus-many/38669144#38669144), [here](http://stackoverflow.com/questions/38548943/correlation-between-multiple-variables-of-a-data-frame/38558925#38558925), [here](http://stackoverflow.com/questions/38331537/r-using-cor-test-on-multiple-columns-on-a-data-frame/38559334#38559334). 
+
+So this post will explain how to use `focus()` from the corrr package to correlate one or more variables in a data frame with many others.
+
+## Starting with corrr
+
+We'll be using the [corrr](https://cran.rstudio.com/web/packages/corrr/index.html) package, which starts by using `correlate()` to create a correlation data frame. For example, we can `correlate()` all columns in the `mtcars` data set as follows:
+
+```{r}
+mtcars %>% correlate()
+```
+
+## Introducing `focus()`
+
+Once we have a correlation data frame, we can `focus()` on subsections of these results. For example, to `focus()` on the correlations of the `mpg` variable with all other variables, we do:
+
+```{r}
+mtcars %>% correlate() %>% focus(mpg)
+```
+
+## How does it work?
+
+`focus()` works similarly to `select()` from the [dplyr](https://cran.r-project.org/web/packages/dplyr/index.html) package (which is loaded along with the corrr package). You add the names of the columns you wish to keep in your correlation data frame. Extending `select()`, `focus()` will then remove the remaining column variables from the rows. This is why `mpg` does not appear in the rows above. Here's another example with two variables:
+
+```{r}
+mtcars %>% correlate() %>% focus(mpg, disp)
+```
+
+`focus()` gives us all the same syntax as `select()`. For example, to drop a column (instead of keeping it), we use `-`, which will then keep it in the rows:
+
+```{r}
+mtcars %>% correlate() %>% focus(-mpg)
+```
+
+Or use utility functions like `contains()`:
+
+```{r}
+iris[-5] %>% correlate() %>% focus(contains("Sepal"))
+```
+
+For the full list of uses, explore `?select`.
+
+## Working with the results
+
+Let's take the case of correlating one variable with all others (e.g., `mpg` with all others). What should we do? Well, we have a data_frame with two columns:
+
+- `rowname` which has the names of the other variables.
+- `mpg` which has the correlations of `mpg` with the other variables.
+
+With this in mind, one thing we can do is describe various aspects of the correlations within `summarise()` (also from dplyr package):
+
+```{r}
+mtcars %>% correlate() %>% focus(mpg) %>% summarise(
+  n    = n(),
+  mean = mean(mpg),
+  sd   = sd(mpg),
+  min  = min(mpg),
+  max  = max(mpg)
+)
+```
+
+I also like to visualise the correlations. For example, using the [ggplot2](https://cran.r-project.org/web/packages/ggplot2/index.html) package:
+
+```{r plot1, warning = F}
+library(ggplot2)
+mtcars %>% correlate() %>% focus(mpg) %>%
+  ggplot(aes(x = rowname, y = mpg)) +
+    geom_bar(stat = "identity") +
+    ylab("Correlation with mpg") +
+    xlab("Variable")
+```
+
+To add to this, we can order `rowname` by the correlation size in `mutate()` below:
+
+```{r plot2, warning = F}
+mtcars %>% correlate() %>% focus(mpg) %>%
+  mutate(rowname = factor(rowname, levels = rowname[order(mpg)])) %>%
+  ggplot(aes(x = rowname, y = mpg)) +
+    geom_bar(stat = "identity") +
+    ylab("Correlation with mpg") +
+    xlab("Variable")
+```
+
+## Extra features
+
+There are a few additional features to `focus()` that might help you on occasions.
+
+First, you can keep the remaining columns in the rows (and remove all others) with the `mirror = TRUE` argument:
+
+```{r}
+mtcars %>% correlate() %>% focus(mpg:drat, mirror = TRUE)
+```
+
+For programmers, there's also a standard evaluation version `focus_()`, which behaves like `select_()`.
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).

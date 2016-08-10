@@ -12,12 +12,185 @@ knitr::opts_chunk$set(
 )
 ```
 
+Have a brand new data set and want to validate the values inside? Read on!
 
 ```{r init-example, message = FALSE}
 
 ```
 
+## Data Cleaning and Validity
 
+As a cognitive scientist, I'm of the opinion that the job of cleaning one's data is a bit like painting or composing - it's never really finished. Still, data cleaning is a critical (and unfortunately often ignored) step in the scienctific process. Part of that step is to ensure that the values in your data are valid. I don't mean this is the scientific sense. What I mean is that all of the values in your data are allowable. For example, "Male" and "Female" are allowable values for gender, while "Saturn" is not; 18 and 94 are allowable values for age, while -20 is not. Invalid values like these creep into our data all the time. Whether it's a participant mistyping their answer in a survey, a programming bug, or Skynet playing with us, we should always check for invalid values in our data set.
+
+## Why continue?
+
+You might get to this point and think, "this seems like a simple task, why bother reading further?!" Well, perhaps in some ways it's something you can easily solve. The purpose of this post is to provide you with a functional way of tackling this problem, regardless of your data set. Take the time to read this post, and I'll promise that it will save you time in the future!
+
+## What to consider?
+
+OK, now that you're reading on, take note of the various features of a data set that will influence our approach:
+
+- Variables can be different types (numeric, character, factor, etc).
+- Even same types can have different valid values (e.g., 0-1 for a proportion, but 0-100 for a percentage).
+- Not all variables need to be checked (e.g., people's names).
+
+## Different types
+
+Let's tackle a couple of validation problems. We'll start with a numeric variable: people's test score as a percentage.
+
+```{r}
+scores <- c(120, 30, 45, 100, -10)
+```
+
+Notice that there are two invalid values in this vector, `120` and `-10`. How would we find these without looking? Generally, for numeric variables, I'm concerned with them falling between a certain min and max as follows:
+
+```{r}
+scores[scores < 0 | scores > 100]
+```
+
+What about a character (or factor) variable like marital status.
+
+```{r}
+marital <- c("married", "single", "mars")
+```
+
+Looks like we've got a `mars`! Typically, I'd find this by combining `!` (not) and the `%in%` operator, which determines whether each object on the left-hand side appears in a vector of values on the right-hand side. For example:
+
+```{r}
+marital[!(marital %in% c("married", "single", "defacto"))]
+```
+
+## Start of a Function
+
+Assuming that we're only deaing with numeric and character/factor variables (which is most of the time), we can now think of a function to write. From the above, we can see that we take a vector of values that need checking. We also need either a min/max for numbers, or a vector of acceptable values for character/factors. Let's say that we'll treat min/max as a vector with min and max entered in that order (like a `range()`). Thus, we can do the following:
+
+```{r}
+is_invalid <- function(vals, valid) {
+  if (is.numeric(vals)) {
+    return (vals[vals < valid[1] | vals > valid[2]])
+  } else {
+    return (vals[!(vals %in% valid)])
+  }
+}
+
+is_invalid(scores, c(0, 100))
+is_invalid(marital, c("married", "single", "defacto"))
+```
+
+So, our function `is_invalid()` checks whether our vector of values, `vals`, is numeric or not. If so, it returns any values that are less than the first number in the vector provided to `valid`, or greater than the second number. If it's not a number, it returns any `vals` that are not `%in%` the `valid` vector.
+
+## Locating invalid
+
+This is a good start, but it's increidbly helpful. If we have a massive data set, knowing what any invalid values are is not sufficient. We'd like to know where they are!
+
+Let's change and expand `is_invalid` to help us out with this:
+
+
+```{r}
+is_invalid <- function(vals, valid) {
+  
+  if (is.numeric(vals)) {
+    invalid_i <- vals < valid[1] | vals > valid[2]
+  } else {
+    invalid_i <- !(vals %in% valid)
+  }
+  
+  data.frame(
+    index = which(invalid_i),
+    value = vals[invalid_i]
+  )
+  
+}
+
+is_invalid(scores, c(0, 100))
+is_invalid(marital, c("married", "single", "defacto", "other"))
+```
+
+This looks a bit better. Now, in the beginning of the function, we're creating a boolean vector, `is_invalid`, that is `TRUE` whenever a `vals` is not valid. We then return a data frame with two columns:
+
+- `index`, which is the index at which the invalid value was found.
+- `value`, which is the invalid value.
+
+## Using lists and iteration
+
+We're now equipped with a function that checks a vector of values for us, how can we apply it to something like an entire data frame that has many of the issues mentioned earlier? You might be tempted to type the function out multiple times for each column, but this is pretty messy. Instead, we'll use interation with the help of a list object.
+
+A list object will let us store the valid values for each variable that we want to check in a data frame. Let's create a toy data set to practice with:
+
+```{r}
+d <- data.frame(
+  name = c("John", "Mary", "Jane", "Smith"),
+  marital = c("married", "defacto", "single", "what"),
+  age = c(30, 42, 0, -1),
+  height = c(160, 180, 210, 2000)
+)
+```
+
+Mentioned earlier, we could run each check separately:
+
+```{r}
+is_invalid(d$marital, c("married", "single", "defacto", "other"))
+is_invalid(d$age, c(1, 120))
+is_invalid(d$height, c(50, 250))
+```
+
+Instead, let's create a list with matching namesto our data frame for variables to check, and with the values to be used as the `valid` argument:
+
+```{r}
+valid_list <- list(
+  marital = c("married", "single", "defacto", "other"),
+  age     = c(1, 120),
+  height  = c(50, 250)
+)
+```
+
+We'll now iterate through the names of this list with `lapply()` to check for us:
+
+```{r}
+lapply(names(valid_list), function(var) {
+  is_invalid(d[[var]], valid_list[[var]])
+})
+```
+
+Now, if we want to handle more columns, we simply add more variables to our list, `valid_list`.
+
+## Making use of the results
+
+Going further, we can make use of the output rather than just printing to the console. In the following example, we'll save the results from `lapply`, and then replace all invalid values in our data frame with `NA`:
+
+```{r}
+to_replace <- lapply(names(valid_list), function(var) {
+  is_invalid(d[[var]], valid_list[[var]])
+})
+names(to_replace) <- names(valid_list)
+
+x <- lapply(names(to_replace), function(var) {
+  x <- d[,var]
+  x[to_replace[[var]]$index] <- NA
+  x
+})
+data.frame(x)
+```
+
+## Better console printing
+
+Given that we're now saving the results to an object (`to_replace`) above, we can print some nice notes instead as follows:
+
+```{r}
+to_replace <- lapply(names(valid_list), function(var) {
+  result <- is_invalid(d[[var]], valid_list[[var]])
+  
+  console_width <- as.numeric(getOption("width"))
+  n_spacers <- floor(.2 * console_width - nchar(var))
+  msg <- "OK"
+  if(nrow(result)) {
+    msg <- paste(nrow(result), "invalid")
+  }
+  cat(var, rep(".", n_spacers), msg, "\n")
+ 
+  return(result)
+})
+```
 
 ## Sign off
 
