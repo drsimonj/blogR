@@ -12,7 +12,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-SOLVED: get the correlations of one or more variables with many others.
+Get the correlations of one or more variables with many others using `focus()` from the corrr package:
 
 ```{r init-example, message = FALSE}
 library(corrr)
