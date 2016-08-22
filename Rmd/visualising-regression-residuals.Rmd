@@ -14,89 +14,64 @@ Residuals. Now there's something to get you out of bed in the morning!
 
 OK, maybe residuals aren't the sexiest topic in the world. Still, they're an important element, and means of identifying potential problems, of any statistical model. For example, the residuals from a linear regression model should be [homoscedastic](https://en.wikipedia.org/wiki/Homoscedasticity). If not, this indicates an issue with the model such as non-linearity in the data.
 
-This post will cover various methods for visualising residuals from regression-based models. Here's an example of the sort of graphics that we'll be creating:
+This post will cover various methods for visualising residuals from regression-based models. Here are some examples of the visualisations that we'll be creating:
 
-```{r init-example, echo = F, message = FALSE}
+```{r init-example1, echo = F, message = FALSE, warning = F, fig.height=3, fig.width=4}
 library(dplyr)
 library(tidyr)
 library(ggplot2)
 
+# Simple Regression
 d <- mtcars
-fit <- lm(hp ~ mpg + disp + wt, data = d)
-d$predicted <- predict(fit)
-d$residual <- residuals(fit)
-
-d %>% 
-  rename(actual = hp) %>% 
-  mutate(row = 1:n()) %>% 
-  select(actual, predicted, residual, row, mpg, disp, wt) %>%
-  gather("iv", "value", -actual, -predicted, -residual, -row) %>% 
-  ggplot(aes(x = value, y = actual)) +
-    # Lines to join actual and predicted values  
-    geom_segment(aes(xend = value, yend = predicted), alpha = .1) +
-    # Predicted value points
-    geom_point(aes(y = predicted, color = abs(residual)), shape = 1) +
-    scale_color_continuous(low = "white", high = "red") +
-    guides(color = FALSE) +
-    # Actual value points
-    geom_point() + 
-    # Splitting by IV
-    facet_grid(~ iv, scales = "free") +
-    labs(title = "Multiple Regression Results",
-         y = "Horse Power",
-         x = "Predictor") +
-    theme_bw()
-
-
-d <- mtcars
-fit <- glm(vs ~ mpg + disp + wt, family = binomial(), data = d)
-d$predicted <- predict(fit, type="response")
-d$residual = residuals(fit, type = "response")
-
-d %>% 
-  rename(actual = vs) %>% 
-  mutate(row = 1:n()) %>% 
-  select(actual, predicted, residual, row, mpg, disp, wt) %>%
-  gather("iv", "value", -actual, -predicted, -residual, -row) %>% 
-  ggplot(aes(x = value, y = actual)) +
-    # Lines to join actual and predicted values  
-    geom_segment(aes(xend = value, yend = predicted), color = "grey") +
-    # Predicted value points
-    geom_point(aes(y = predicted, color = abs(residual)), size = 3) +
-    scale_color_continuous(low = "white", high = "red") +
-    guides(color = FALSE) +
-    geom_point(aes(y = predicted), color = "white", size = 1) +
-    # Actual value points
-    geom_point() + 
-    # Splitting by IV
-    facet_grid(~ iv, scales = "free") +
-    theme_bw()
-
-
-
-d <- iris
-
-fit <- lm(Sepal.Width ~ Sepal.Length, data = d)
-
+fit <- lm(mpg ~ hp, data = d)
 d$predicted <- predict(fit)
 d$residuals <- residuals(fit)
-
-ggplot(d, aes(x = Sepal.Length, y = Sepal.Width)) +
-  geom_smooth(method = "lm", se = FALSE, color = "black") +
-  geom_segment(aes(xend = Sepal.Length, yend = predicted), alpha = .1) +
-  geom_point(aes(size = abs(residuals), color = abs(residuals))) +
-  #geom_point(aes(y = predicted, color = abs(residuals))) +
-  scale_color_continuous(low = "white", high = "red") +
+ggplot(d, aes(x = hp, y = mpg)) +
+  geom_smooth(method = "lm", se = FALSE, color = "lightgrey") +
+  geom_segment(aes(xend = hp, yend = predicted), alpha = .2) +
+  geom_point(aes(color = abs(residuals), size = abs(residuals))) +
+  scale_color_continuous(low = "black", high = "red") +
   guides(color = FALSE, size = FALSE) +
+  geom_point(aes(y = predicted), shape = 1) +
   theme_bw()
-
+```
+```{r init-example2, echo = F, message = FALSE, warning = F, fig.height=3}
+# Multiple regression
+d <- iris
+fit <- lm(Sepal.Width ~ ., data = iris)
+d$predicted <- predict(fit)
+d$residuals <- residuals(fit)
+d %>% 
+  gather(key = "iv", value = "x", -Sepal.Width, -predicted, -residuals) %>%
+  ggplot(aes(x = x, y = Sepal.Width)) +
+  geom_segment(aes(xend = x, yend = predicted), alpha = .2) +
+  geom_point(aes(color = residuals)) +
+  scale_color_gradient2(low = "blue", mid = "white", high = "red") +
+  guides(color = FALSE) +
+  geom_point(aes(y = predicted), shape = 1) +
+  facet_grid(~ iv, scales = "free") +
+  theme_bw()
+```
+```{r init-example3, echo = F, message = FALSE, warning = F, fig.height=2, fig.width=4}
+# Logistic regression
+d <- mtcars
+fit <- glm(vs ~ hp, family = binomial(), data = d)
+d$predicted <- predict(fit, type="response")
+d$residuals <- residuals(fit, type = "response")
+ggplot(d, aes(x = hp, y = vs)) +
+  geom_segment(aes(xend = hp, yend = predicted), alpha = .2) +
+  geom_point(aes(color = residuals)) +
+  scale_color_gradient2(low = "blue", mid = "white", high = "red") +
+  guides(color = FALSE) +
+  geom_point(aes(y = predicted), shape = 1) +
+  theme_bw()
 ```
 
 ## What you need to know
 
 To get the most out of this post, there are a few things you should know about. Firstly, if you're unfamiliar with the meaning of residuals, or what seems to be going on here, I'd recommend that you first do some introductory reading on the topic. Some places to get started are [Wikipedia](https://en.wikipedia.org/wiki/Errors_and_residuals) and this nice section on [Statwing](http://docs.statwing.com/interpreting-residual-plots-to-improve-your-regression/).
 
-We'll also be using the following R packages: [ggplot2](https://cran.r-project.org/web/packages/ggplot2/index.html) to produce all graphics, and [dplyr](https://cran.r-project.org/web/packages/dplyr/index.html) and [tidyr](https://cran.r-project.org/web/packages/tidyr/index.html) to do data manipulation. In most cases, I'll provide an indication of which functions are doing what, but it will help if you're familiar with these packages.
+You'll also need to be familiar with running regression (linear and logistic) in R, and using the following packages: [ggplot2](https://cran.r-project.org/web/packages/ggplot2/index.html) to produce all graphics, and [dplyr](https://cran.r-project.org/web/packages/dplyr/index.html) and [tidyr](https://cran.r-project.org/web/packages/tidyr/index.html) to do data manipulation. In most cases, you should be able to follow along with each step, but it will help if you're already familiar with these.
 
 ## What we've got already
 
@@ -115,7 +90,7 @@ These plots provide a classic means to interpret residual terms and determine wh
 
 ## General Approach
 
-The general idea behind each of the plots that we'll be making is to:
+The general approach behind each of the examples that we'll cover below is to:
 
 1. Fit a regression model to predict variable $Y$.
 2. Obtain the predicted and residual values associated with each observation on $Y$.
@@ -124,9 +99,11 @@ The general idea behind each of the plots that we'll be making is to:
 
 ## Simple Linear Regression
 
+We'll start with simple linear regression, which is when we regress one variable on just one other. We can take the earlier example, where we regressed miles per gallon on horsepower.
+
 ### Step 1: fit the model
 
-We'll start with simple linear regression, which is when we regress one variable on just one other. We can take the earlier example, where we regressed miles per gallon on horsepower. In this instance, let's first copy the `mtcars` dataset to a new object `d` so we can manipulate it later:
+First we will fit our model. In this instance, let's copy the `mtcars` dataset to a new object `d` so we can manipulate it later:
 
 ```{r}
 d <- mtcars
@@ -143,7 +120,7 @@ d$residuals <- residuals(fit) # Save the residual values
 
 # Quick look at the actual, predicted, and residual values
 library(dplyr)
-d %>% select(hp, predicted, residuals) %>% head()
+d %>% select(mpg, predicted, residuals) %>% head()
 ```
 
 Looking good so far.
@@ -158,7 +135,7 @@ ggplot(d, aes(x = hp, y = mpg)) +  # Set up canvas with outcome variable on y-ax
   geom_point()  # Plot the actual points
 ```
 
-Next, we plot the predicted values in a way that they're distibguishable. Let's change their shape:
+Next, we plot the predicted values in a way that they're distibguishable from the actual values. For example, let's change their shape:
 
 ```{r}
 ggplot(d, aes(x = hp, y = mpg)) +
@@ -166,7 +143,7 @@ ggplot(d, aes(x = hp, y = mpg)) +
   geom_point(aes(y = predicted), shape = 1)  # Add the predicted values
 ```
 
-This is on track, but a bit confusing. Let's connect the actual data points with their corresponding predicted value using `geom_segment()`:
+This is on track, but it's difficult to see how our actual and predicted values are related. Let's connect the actual data points with their corresponding predicted value using `geom_segment()`:
 
 ```{r}
 ggplot(d, aes(x = hp, y = mpg)) +
@@ -348,12 +325,34 @@ d %>%
   theme_bw()
 ```
 
-After the regression, the only change in our code was to change `mpg` to `Sepal.Width` in two places: the `gather()` and `ggplot()` lines. We can now see how the actual and predicted values compare across our predictor variables. It's clear from this that the sepal width of the setosa species is not being as well accounted for as the other species.
+To make this plot, after the regression, the only change to our previous code was to change `mpg` to `Sepal.Width` in two places: the `gather()` and `ggplot()` lines.
+
+We can now see how the actual and predicted values compare across our predictor variables. In case you'd forgotten, the coloured points are the actual data, and the white circles are the predicted values. With this in mind, we can see, as expected, that there is less variability in the predicted values that the actual values. It also appears that the sepal width of the setosa species is not being as well accounted for as the other species.
 
 ## Logistic Regression
 
-To round this post off, lets extend this approach to logistic regression.
+To round this post off, lets extend our approach to logistic regression. It's going to be basically the same workflow, except that we need to extract predicted and residual values for the responses. Here's an example predicting V/S (`vs`), which is 0 or 1, with `hp`:
 
+```{r}
+# Step 1: Fit the data
+d <- mtcars
+fit <- glm(vs ~ hp, family = binomial(), data = d)
+
+# Step 2: Obtain predicted and residuals
+d$predicted <- predict(fit, type="response")
+d$residuals <- residuals(fit, type = "response")
+
+# Steps 3 and 4: plot the results
+ggplot(d, aes(x = hp, y = vs)) +
+  geom_segment(aes(xend = hp, yend = predicted), alpha = .2) +
+  geom_point(aes(color = residuals)) +
+  scale_color_gradient2(low = "blue", mid = "white", high = "red") +
+  guides(color = FALSE) +
+  geom_point(aes(y = predicted), shape = 1) +
+  theme_bw()
+```
+
+I'll leave it to you to combine this with instructions from the previous sections if you'd like to extend it to multiple logistic regression. But, hopefully, you should now have a good idea of the steps involved and how to create these residual visualisations!
 
 ## Sign off
 
