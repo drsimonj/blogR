@@ -37,7 +37,7 @@ ggplot(d, aes(x = hp, y = mpg)) +
 ```
 ```{r init-example2, echo = F, message = FALSE, warning = F, fig.height=3}
 # Multiple regression
-d <- iris
+d <- iris[, -5]
 fit <- lm(Sepal.Width ~ ., data = iris)
 d$predicted <- predict(fit)
 d$residuals <- residuals(fit)
@@ -49,7 +49,7 @@ d %>%
   scale_color_gradient2(low = "blue", mid = "white", high = "red") +
   guides(color = FALSE) +
   geom_point(aes(y = predicted), shape = 1) +
-  facet_grid(~ iv, scales = "free") +
+  facet_grid(~ iv, scales = "free_x") +
   theme_bw()
 ```
 ```{r init-example3, echo = F, message = FALSE, warning = F, fig.height=2, fig.width=4}
@@ -296,14 +296,14 @@ d %>%
   scale_color_gradient2(low = "blue", mid = "white", high = "red") +
   guides(color = FALSE) +
   geom_point(aes(y = predicted), shape = 1) +
-  facet_grid(~ iv, scales = "free") +  # Split panels here by `iv`
+  facet_grid(~ iv, scales = "free_x") +  # Split panels here by `iv`
   theme_bw()
 ```
 
-Let's try this out with another data set. We'll use the `iris` data set, and regress `Sepal.Width` on all other variables (including the categorical variable, `species`):
+Let's try this out with another data set. We'll use the `iris` data set, and regress `Sepal.Width` on all other continuous variables:
 
 ```{r, fig.height = 2.5, warning = F}
-d <- iris
+d <- iris %>% select(-Species)
 
 # Fit the model
 fit <- lm(Sepal.Width ~ ., data = iris)
@@ -321,13 +321,13 @@ d %>%
   scale_color_gradient2(low = "blue", mid = "white", high = "red") +
   guides(color = FALSE) +
   geom_point(aes(y = predicted), shape = 1) +
-  facet_grid(~ iv, scales = "free") +
+  facet_grid(~ iv, scales = "free_x") +
   theme_bw()
 ```
 
 To make this plot, after the regression, the only change to our previous code was to change `mpg` to `Sepal.Width` in two places: the `gather()` and `ggplot()` lines.
 
-We can now see how the actual and predicted values compare across our predictor variables. In case you'd forgotten, the coloured points are the actual data, and the white circles are the predicted values. With this in mind, we can see, as expected, that there is less variability in the predicted values than the actual values. It also appears that the sepal width of the setosa species is not as well accounted for as the other species.
+We can now see how the actual and predicted values compare across our predictor variables. In case you'd forgotten, the coloured points are the actual data, and the white circles are the predicted values. With this in mind, we can see, as expected, that there is less variability in the predicted values than the actual values.
 
 ## Logistic Regression
 
