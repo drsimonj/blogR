@@ -12,7 +12,7 @@ knitr::opts_chunk$set(
 
 Residuals. Now there's something to get you out of bed in the morning!
 
-OK, maybe residuals aren't the sexiest topic in the world. Still, they're an important element, and means of identifying potential problems, of any statistical model. For example, the residuals from a linear regression model should be [homoscedastic](https://en.wikipedia.org/wiki/Homoscedasticity). If not, this indicates an issue with the model such as non-linearity in the data.
+OK, maybe residuals aren't the sexiest topic in the world. Still, they're an essential element and means for identifying potential problems of any statistical model. For example, the residuals from a linear regression model should be [homoscedastic](https://en.wikipedia.org/wiki/Homoscedasticity). If not, this indicates an issue with the model such as non-linearity in the data.
 
 This post will cover various methods for visualising residuals from regression-based models. Here are some examples of the visualisations that we'll be creating:
 
@@ -69,13 +69,13 @@ ggplot(d, aes(x = hp, y = vs)) +
 
 ## What you need to know
 
-To get the most out of this post, there are a few things you should know about. Firstly, if you're unfamiliar with the meaning of residuals, or what seems to be going on here, I'd recommend that you first do some introductory reading on the topic. Some places to get started are [Wikipedia](https://en.wikipedia.org/wiki/Errors_and_residuals) and this nice section on [Statwing](http://docs.statwing.com/interpreting-residual-plots-to-improve-your-regression/).
+To get the most out of this post, there are a few things you should be aware of. Firstly, if you're unfamiliar with the meaning of residuals, or what seems to be going on here, I'd recommend that you first do some introductory reading on the topic. Some places to get started are [Wikipedia](https://en.wikipedia.org/wiki/Errors_and_residuals) and this excellent section on [Statwing](http://docs.statwing.com/interpreting-residual-plots-to-improve-your-regression/).
 
 You'll also need to be familiar with running regression (linear and logistic) in R, and using the following packages: [ggplot2](https://cran.r-project.org/web/packages/ggplot2/index.html) to produce all graphics, and [dplyr](https://cran.r-project.org/web/packages/dplyr/index.html) and [tidyr](https://cran.r-project.org/web/packages/tidyr/index.html) to do data manipulation. In most cases, you should be able to follow along with each step, but it will help if you're already familiar with these.
 
 ## What we've got already
 
-Before diving in, it's good to remind ourselves of the default options the R has for visualising residuals. Most notably, we can directly `plot()` a fitted regression model. For example, using the `mtcars` data set, lets regress the number of miles per gallon for each car (`mpg`) on their horse power (`hp`) and visualise information about the model and residuals:
+Before diving in, it's good to remind ourselves of the default options that R has for visualising residuals. Most notably, we can directly `plot()` a fitted regression model. For example, using the `mtcars` data set, let's regress the number of miles per gallon for each car (`mpg`) on their horsepower (`hp`) and visualise information about the model and residuals:
 
 ```{r}
 fit <- lm(mpg ~ hp, data = mtcars)  # Fit the model
@@ -86,7 +86,7 @@ plot(fit)  # Plot the model information
 par(mfrow = c(1, 1))  # Return plotting panel to 1 section
 ```
 
-These plots provide a classic means to interpret residual terms and determine whether there might be problems with our model. We'll now be thinking about how to supplement these with some alternative (and more visually appealing) graphics.
+These plots provide a traditional method to interpret residual terms and determine whether there might be problems with our model. We'll now be thinking about how to supplement these with some alternative (and more visually appealing) graphics.
 
 ## General Approach
 
@@ -103,7 +103,7 @@ We'll start with simple linear regression, which is when we regress one variable
 
 ### Step 1: fit the model
 
-First we will fit our model. In this instance, let's copy the `mtcars` dataset to a new object `d` so we can manipulate it later:
+First, we will fit our model. In this instance, let's copy the `mtcars` dataset to a new object `d` so we can manipulate it later:
 
 ```{r}
 d <- mtcars
@@ -112,7 +112,7 @@ fit <- lm(mpg ~ hp, data = d)
 
 ### Step 2: obtain predicted and residual values
 
-Next, we want to obtain predicted and residual values to add supplementary information to this graph. We can do this as follows:
+Next, we want to get predicted and residual values to add supplementary information to this graph. We can do this as follows:
 
 ```{r}
 d$predicted <- predict(fit)   # Save the predicted values
@@ -135,7 +135,7 @@ ggplot(d, aes(x = hp, y = mpg)) +  # Set up canvas with outcome variable on y-ax
   geom_point()  # Plot the actual points
 ```
 
-Next, we plot the predicted values in a way that they're distibguishable from the actual values. For example, let's change their shape:
+Next, we plot the predicted values in a way that they're distinguishable from the actual values. For example, let's change their shape:
 
 ```{r}
 ggplot(d, aes(x = hp, y = mpg)) +
@@ -235,7 +235,7 @@ ggplot(d, aes(x = hp, y = mpg)) +
   theme_bw()
 ```
 
-I particularly like this last example, because the colours nicely help to identify non-linearity in the data. For example, we can see that there is more red for extreme values of `hp` where the actual values are greater than what is being predicted. There is more blue in the centre, however, indicating that the true values are less than what is being predicted. Together, this indicates that the relationship between the variables is non-linear, possibly quadratic.
+I particularly like this last example, because the colours nicely help to identify non-linearity in the data. For example, we can see that there is more red for extreme values of `hp` where the actual values are greater than what is being predicted. There is more blue in the centre, however, indicating that the actual values are less than what is being predicted. Together, this suggests that the relationship between the variables is non-linear, and might be better modelled by including a quadratic term in the regression equation.
 
 ## Multiple Regression
 
@@ -259,13 +259,13 @@ Let's create a relevant plot using ONE of our predictors, horsepower (`hp`). Aga
 
 ```{r}
 ggplot(d, aes(x = hp, y = mpg)) +
-  geom_segment(aes(xend = hp, yend = predicted), alpha = .2) +
-  geom_point() +
-  geom_point(aes(y = predicted), shape = 1) +
+  geom_segment(aes(xend = hp, yend = predicted), alpha = .2) +  # Lines to connect points
+  geom_point() +  # Points of actual values
+  geom_point(aes(y = predicted), shape = 1) +  # Points of predicted values
   theme_bw()
 ```
 
-Again, we can make all sorts of adjustments using the residual values. Let's apply the same adjustments as the last plot above - with blue or red for actual values that are greater or less than their predicted values:
+Again, we can make all sorts of adjustments using the residual values. Let's apply the same changes as the last plot above - with blue or red for actual values that are greater or less than their predicted values:
 
 ```{r}
 ggplot(d, aes(x = hp, y = mpg)) +
@@ -277,7 +277,7 @@ ggplot(d, aes(x = hp, y = mpg)) +
   theme_bw()
 ```
 
-So far, there's not really anything new in our code. All that has changed in that the predicted values don't line up perfectly because we're now doing multiple regression.
+So far, there's not anything new in our code. All that has changed in that the predicted values don't line up neatly because we're now doing multiple regression.
 
 ### Plotting multiple predictors at once
 
@@ -327,11 +327,11 @@ d %>%
 
 To make this plot, after the regression, the only change to our previous code was to change `mpg` to `Sepal.Width` in two places: the `gather()` and `ggplot()` lines.
 
-We can now see how the actual and predicted values compare across our predictor variables. In case you'd forgotten, the coloured points are the actual data, and the white circles are the predicted values. With this in mind, we can see, as expected, that there is less variability in the predicted values that the actual values. It also appears that the sepal width of the setosa species is not being as well accounted for as the other species.
+We can now see how the actual and predicted values compare across our predictor variables. In case you'd forgotten, the coloured points are the actual data, and the white circles are the predicted values. With this in mind, we can see, as expected, that there is less variability in the predicted values than the actual values. It also appears that the sepal width of the setosa species is not as well accounted for as the other species.
 
 ## Logistic Regression
 
-To round this post off, lets extend our approach to logistic regression. It's going to be basically the same workflow, except that we need to extract predicted and residual values for the responses. Here's an example predicting V/S (`vs`), which is 0 or 1, with `hp`:
+To round this post off, let's extend our approach to logistic regression. It's going to require the same basic workflow, but we will need to extract predicted and residual values for the responses. Here's an example predicting V/S (`vs`), which is 0 or 1, with `hp`:
 
 ```{r}
 # Step 1: Fit the data
@@ -346,6 +346,24 @@ d$residuals <- residuals(fit, type = "response")
 ggplot(d, aes(x = hp, y = vs)) +
   geom_segment(aes(xend = hp, yend = predicted), alpha = .2) +
   geom_point(aes(color = residuals)) +
+  scale_color_gradient2(low = "blue", mid = "white", high = "red") +
+  guides(color = FALSE) +
+  geom_point(aes(y = predicted), shape = 1) +
+  theme_bw()
+```
+
+If we only want to flag cases that would be scored as the incorrect category, we can do something like the following (with some help from the dplyr function, `filter()`):
+
+```{r}
+ggplot(d, aes(x = hp, y = vs)) +
+  geom_segment(aes(xend = hp, yend = predicted), alpha = .2) +
+  geom_point() +
+  
+  # > This plots large red circle on misclassified points
+  geom_point(data = d %>% filter(vs != round(predicted)),
+             color = "red", size = 2) +
+  # <
+  
   scale_color_gradient2(low = "blue", mid = "white", high = "red") +
   guides(color = FALSE) +
   geom_point(aes(y = predicted), shape = 1) +
