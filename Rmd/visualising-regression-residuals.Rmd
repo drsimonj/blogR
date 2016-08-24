@@ -397,7 +397,7 @@ ggplot(d, aes(x = hp, y = mpg)) +
   geom_smooth(method = "lm", se = FALSE, color = "lightgrey") +
   geom_segment(aes(xend = hp, yend = .fitted), alpha = .2) +  # Note `.fitted`
   geom_point(aes(alpha = abs(.resid))) +  # Note `.resid`
-  guides(color = FALSE, size = FALSE) +
+  guides(alpha = FALSE) +
   geom_point(aes(y = .fitted), shape = 1) +  # Note `.fitted`
   theme_bw()
 ```
