@@ -300,7 +300,7 @@ d %>%
   theme_bw()
 ```
 
-Let's try this out with another data set. We'll use the `iris` data set, and regress `Sepal.Width` on all other continuous variables:
+Let's try this out with another data set. We'll use the `iris` data set, and regress `Sepal.Width` on all other continuous variables (aside, thanks to [Hadley Wickham's](https://twitter.com/hadleywickham/status/768094366313226242) suggestion to drop categorical variables for plotting):
 
 ```{r, fig.height = 2.5, warning = F}
 d <- iris %>% select(-Species)
@@ -371,6 +371,36 @@ ggplot(d, aes(x = hp, y = vs)) +
 ```
 
 I'll leave it to you to combine this with instructions from the previous sections if you'd like to extend it to multiple logistic regression. But, hopefully, you should now have a good idea of the steps involved and how to create these residual visualisations!
+
+## Bonus: using broom
+
+After recieving the same helpful suggestion from [aurelien ginolhac](https://twitter.com/kingsushigino/status/768070891431464960) and [Ilya Kashnitsky](https://twitter.com/ikashnitsky/status/768465817088307200) (my thanks to both of them), this section will briefly cover how to implement the `augment()` function from the [broom](https://cran.r-project.org/web/packages/broom/index.html) package for Step 2 of the above.
+
+The broom package helps to "convert statistical analysis objects from R into tidy data frames". In our case, `augment()` will convert the fitted regression model into a dataframe with the predicted (fitted) and residual values already available.
+
+A complete example using `augment()` is shown below. However, there are a couple of important differences about the data returned by `augment()` compared to the earlier approach to note:
+
+- The names of the predicted and residual values are `.fitted` and `.resid`
+- There are many additional variables that we gain access to. These need to be dropped if you wish to implement the `gather()` and `facet_*()` combination described earlier.
+
+```{r}
+library(broom)
+
+# Steps 1 and 2
+d <- lm(mpg ~ hp, data = mtcars) %>% 
+       augment()
+
+head(d)
+
+# Steps 3 and 4
+ggplot(d, aes(x = hp, y = mpg)) +
+  geom_smooth(method = "lm", se = FALSE, color = "lightgrey") +
+  geom_segment(aes(xend = hp, yend = .fitted), alpha = .2) +  # Note `.fitted`
+  geom_point(aes(alpha = abs(.resid))) +  # Note `.resid`
+  guides(color = FALSE, size = FALSE) +
+  geom_point(aes(y = .fitted), shape = 1) +  # Note `.fitted`
+  theme_bw()
+```
 
 ## Sign off
 
