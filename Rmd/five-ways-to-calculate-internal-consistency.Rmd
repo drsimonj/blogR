@@ -140,7 +140,7 @@ item_total %>%
 
 ## Cronbach's alpha
 
-Cronbach's alpha is one of the most widely reported measures of internal consistency. Although it's possible to implement the maths behind it, I like to use the `alpha()` function from the [psych](https://cran.r-project.org/web/packages/psych/index.html) package. This function takes a data frame or matrix of data in the structure that we're using: each column is a test/questionnaire item, each row is a person. Let's test it out below. Note that `alpha()` is also a function from the ggplot2 package, and this creates a conflict. To specify that we want `alpha()` from the psych package, we will use `psych::alpha()`
+Cronbach's alpha is one of the most widely reported measures of internal consistency. Although it's possible to implement the maths behind it, I'm lazy and like to use the `alpha()` function from the [psych](https://cran.r-project.org/web/packages/psych/index.html) package. This function takes a data frame or matrix of data in the structure that we're using: each column is a test/questionnaire item, each row is a person. Let's test it out below. Note that `alpha()` is also a function from the ggplot2 package, and this creates a conflict. To specify that we want `alpha()` from the psych package, we will use `psych::alpha()`
 
 ```{r}
 d$score <- NULL  # delete the score column we made earlier
@@ -148,7 +148,7 @@ d$score <- NULL  # delete the score column we made earlier
 psych::alpha(d)
 ```
 
-This function provides a range of output, and generally what we're interested in is `std.alpha`, which is "the standardised alpha based upon the correlations". Also note, however, that we get "the average interitem correlation", `average_r    `, and various versions of "the correlation of each item with the total score" such as `raw.r`, whose values match our earlier calculations.
+This function provides a range of output, and generally what we're interested in is `std.alpha`, which is "the standardised alpha based upon the correlations". Also note that we get "the average interitem correlation", `average_r    `, and various versions of "the correlation of each item with the total score" such as `raw.r`, whose values match our earlier calculations.
 
 If you'd like to access the alpha value itself, you can do the following: 
 
@@ -158,13 +158,13 @@ psych::alpha(d)$total$std.alpha
 
 ## Split-half reliability (adjusted using the Spearman–Brown prophecy formula)
 
-There are times, however, when we can't calculate internal consistency using item responses. For example, I often work with a decision-making variable called recklessness. This variable is calculated after people answer questions (e.g., "What is the longest river is Asia"), and then decide whether or not to bet on their answer being correct. Recklessness is calculated as the proportion of incorrect answers that a person bets on.
+There are times when we can't calculate internal consistency using item responses. For example, I often work with a decision-making variable called recklessness. This variable is calculated after people answer questions (e.g., "What is the longest river is Asia"), and then decide whether or not to bet on their answer being correct. Recklessness is calculated as the proportion of incorrect answers that a person bets on.
 
 If you think about it, it's not possible to calculate internal consistency for this variable using any of the above measures. The reason for this is that the items that contribute to two people's recklessness scores could be completely different. One person could give incorrect answers on questions 1 to 5 (thus these questions go into calculating their score), while another person might incorrectly respond to questions 6 to 10. Thus, calculating recklessness for many individuals isn't as simple as summing across items. Instead, we need an item pool from which we consider different items for each person.
 
-To overcome this sort of issue, an appropriate method for calculating internal consistency is to use a split-half reliability. This entails splitting your test items in half (e.g., into odd and even) and calculating your variable for each person with each half. For example, I typically calculate recklessness for each participant from odd items, and then again from even items. These scores are then correlated, and adjusted using the [Spearman-Brown prophecy/prediction formula](https://en.wikipedia.org/wiki/Spearman%E2%80%93Brown_prediction_formula) (for examples, see some of my publications such as [this](https://www.researchgate.net/publication/292984167_Individual_Differences_in_Decision_Making_Depend_on_Cognitive_Abilities_Monitoring_and_Control) or [this](https://www.researchgate.net/publication/278329159_Decision_Pattern_Analysis_as_a_General_Framework_for_Studying_Individual_Differences_in_Decision_Making)). Similar to Cronbach's alpha, a value closer to 1 and further from zero indicates greater internal consistency.
+To overcome this sort of issue, an appropriate method for calculating internal consistency is to use a split-half reliability. This entails splitting your test items in half (e.g., into odd and even) and calculating your variable for each person with each half. For example, I typically calculate recklessness for each participant from odd items and then from even items. These scores are then correlated and adjusted using the [Spearman-Brown prophecy/prediction formula](https://en.wikipedia.org/wiki/Spearman%E2%80%93Brown_prediction_formula) (for examples, see some of my publications such as [this](https://www.researchgate.net/publication/292984167_Individual_Differences_in_Decision_Making_Depend_on_Cognitive_Abilities_Monitoring_and_Control) or [this](https://www.researchgate.net/publication/278329159_Decision_Pattern_Analysis_as_a_General_Framework_for_Studying_Individual_Differences_in_Decision_Making)). Similar to Cronbach's alpha, a value closer to 1 and further from zero indicates greater internal consistency.
 
-We can still calculate split-half reliability for variables that do not have this problem! SO let's do this with our extraversion data as follows:
+We can still calculate split-half reliability for variables that do not have this problem! So let's do this with our extraversion data as follows:
 
 ```{r}
 # Calculating total score...
@@ -203,7 +203,7 @@ There are various ways to get to the composite reliability from this model. We'l
 
 ```{r}
 sl <- standardizedSolution(fit)
-sl <- sl[sl$op == "=~", "est.std"]
+sl <- sl$est.std[sl$op == "=~"]
 names(sl) <- names(d)
 sl  # These are the standardized factor loadings for each item
 ```
@@ -211,10 +211,10 @@ sl  # These are the standardized factor loadings for each item
 We then obtain the composite reliability via the following:
 
 ```{r}
-# Compute residual variance in each item
+# Compute residual variance of each item
 re <- 1 - sl^2
 
-# Compute composite Reliability
+# Compute composite reliability
 sum(sl)^2 / (sum(sl)^2 + sum(re))
 ```
 
