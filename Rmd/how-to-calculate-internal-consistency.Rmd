@@ -1,0 +1,233 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.height = 3,
+  fig.width = 3
+)
+```
+
+Let's get psychometric and learn a range of ways to compute the internal consistency of a test or questionnaire in R. We'll be covering:
+
+- Average inter-item correlation
+- Average item-total correlation
+- Cronbach's alpha
+- Split-half reliability (adjusted using the Spearman–Brown prophecy formula)
+- Composite reliability
+
+If you're unfamiliar with any of these, here are some resources to get you up to speed:
+
+- <https://en.wikipedia.org/wiki/Internal_consistency>
+- <https://en.wikipedia.org/wiki/Cronbach%27s_alpha>
+- <http://www.socialresearchmethods.net/kb/reltypes.php>
+- <http://zencaroline.blogspot.com.au/2007/06/composite-reliability.html>
+
+## The data
+
+For this post, we'll be using data on a Big 5 measure of personality that is freely available from [Personality Tests](http://personality-testing.info/). You can download the data yourself [HERE](http://personality-testing.info/_rawdata/BIG5.zip), or running the following code will handle the downloading and save the data as an object called `d`:
+
+```{r}
+temp <- tempfile()
+download.file("http://personality-testing.info/_rawdata/BIG5.zip", temp, mode="wb")
+d <- read.table(unz(temp, "BIG5/data.csv"), header = TRUE, sep="\t")
+unlink(temp); rm(temp)
+```
+
+At the time this post was written, this data set contained data for `r nrow(d)` people, starting with some demographic information and then their responses on 50 items: 10 for each Big 5 dimension. This is a bit much, so let's cut it down to work on the first 500 participants and the Extraversion items (`E1` to `E10`):
+
+```{r, warning = F}
+d <- d[1:500, paste0("E", 1:10)]
+str(d)
+```
+
+Here is a list of the extraversion items that people are rating from 1 = Disagree to 5 = Agree:
+
+- E1    I am the life of the party.
+- E2    I don't talk a lot.
+- E3    I feel comfortable around people.
+- E4    I keep in the background.
+- E5    I start conversations.
+- E6    I have little to say.
+- E7    I talk to a lot of different people at parties.
+- E8    I don't like to draw attention to myself.
+- E9    I don't mind being the center of attention.
+- E10    I am quiet around strangers.
+
+You can see that there are five items that need to be reverse scored (`r paste0("E", c(2, 4, 6, 8, 10))`). Because ratings range from 1 to 5, we can do the following:
+
+```{r}
+d[, paste0("E", c(2, 4, 6, 8, 10))] <- 6 - d[, paste0("E", c(2, 4, 6, 8, 10))]
+```
+
+We've now got a data frame of responses with each column being an item (scored in the correct direction) and each row being a participant. Let's get started!
+
+## Average inter-item correlation
+
+The average inter-item correlation is any easy place to start. To calculate this statistic, we need the correlations between all items, and then to average them. Let's use my [corrr](https://cran.rstudio.com/web/packages/corrr/) package to get these correlations as follows (no bias here!):
+
+```{r, warning = F, message = F}
+library(corrr)
+d %>% correlate()
+```
+
+Because the diagonal is already set to `NA`, we can obtain the average correlation of each item with all others by computing the means for each column (excluding the `rowname` column):
+
+```{r}
+inter_item <- d %>% correlate() %>% select(-rowname) %>% colMeans(na.rm = TRUE)
+inter_item
+```
+
+Aside, note that `select()` comes from the dplyr package, which is imported when you use corrr.
+
+We can see that `E5` and `E7` are more strongly correlated with the other items on average than `E8`. However, most items correlate with the others in a reasonably restricted range around .4 to .5.
+
+To obtain the overall average inter-item correlation, we calculate the `mean()` of these values:
+
+```{r}
+mean(inter_item)
+```
+
+However, with these values, we can explore a range of attributes about the relationships between the items. For example, we can visualise them in a histogram and highlight the mean as follows:
+
+```{r}
+library(ggplot2)
+
+data.frame(inter_item) %>% 
+  ggplot(aes(x = inter_item)) +
+    geom_histogram(bins = 10, alpha = .5) +
+    geom_vline(xintercept = mean(inter_item), color = "red") +
+    xlab("Mean inter-item correlation") +
+    theme_bw()
+```
+
+## Average item-total correlation
+
+We can investigate the average item-total correlation in a similar way to the inter-item correlations. The first thing we need to do is calculate the total score. Let's say that a person's score is the mean of their responses to all ten items:
+
+```{r}
+d$score <- rowMeans(d)
+head(d)
+```
+
+Now, we'll `correlate()` everything again, but this time `focus()` on the correlations of the `score` with the items:
+
+```{r}
+item_total <- d %>% correlate() %>% focus(score)
+item_total
+```
+
+Again, we can calculate their mean as:
+
+```{r}
+mean(item_total$score)
+```
+
+And we can plot the results:
+
+```{r}
+item_total %>% 
+  ggplot(aes(x = score)) +
+    geom_histogram(bins = 10, alpha = .5) +
+    geom_vline(xintercept = mean(item_total$score), color = "red") +
+    xlab("Mean item-total correlation") +
+    theme_bw()
+```
+
+## Cronbach's alpha
+
+Cronbach's alpha is one of the most widely reported measures of internal consistency. Although it's possible to implement the maths behind it, I like to use the `alpha()` function from the [psych](https://cran.r-project.org/web/packages/psych/index.html) package. This function takes a data frame or matrix of data in the structure that we're using: each column is a test/questionnaire item, each row is a person. Let's test it out below. Note that `alpha()` is also a function from the ggplot2 package, and this creates a conflict. To specify that we want `alpha()` from the psych package, we will use `psych::alpha()`
+
+```{r}
+d$score <- NULL  # delete the score column we made earlier
+
+psych::alpha(d)
+```
+
+This function provides a range of output, and generally what we're interested in is `std.alpha`, which is "the standardised alpha based upon the correlations". Also note, however, that we get "the average interitem correlation", `average_r    `, and various versions of "the correlation of each item with the total score" such as `raw.r`, whose values match our earlier calculations.
+
+If you'd like to access the alpha value itself, you can do the following: 
+
+```{r}
+psych::alpha(d)$total$std.alpha
+```
+
+## Split-half reliability (adjusted using the Spearman–Brown prophecy formula)
+
+There are times, however, when we can't calculate internal consistency using item responses. For example, I often work with a decision-making variable called recklessness. This variable is calculated after people answer questions (e.g., "What is the longest river is Asia"), and then decide whether or not to bet on their answer being correct. Recklessness is calculated as the proportion of incorrect answers that a person bets on.
+
+If you think about it, it's not possible to calculate internal consistency for this variable using any of the above measures. The reason for this is that the items that contribute to two people's recklessness scores could be completely different. One person could give incorrect answers on questions 1 to 5 (thus these questions go into calculating their score), while another person might incorrectly respond to questions 6 to 10. Thus, calculating recklessness for many individuals isn't as simple as summing across items. Instead, we need an item pool from which we consider different items for each person.
+
+To overcome this sort of issue, an appropriate method for calculating internal consistency is to use a split-half reliability. This entails splitting your test items in half (e.g., into odd and even) and calculating your variable for each person with each half. For example, I typically calculate recklessness for each participant from odd items, and then again from even items. These scores are then correlated, and adjusted using the [Spearman-Brown prophecy/prediction formula](https://en.wikipedia.org/wiki/Spearman%E2%80%93Brown_prediction_formula) (for examples, see some of my publications such as [this](https://www.researchgate.net/publication/292984167_Individual_Differences_in_Decision_Making_Depend_on_Cognitive_Abilities_Monitoring_and_Control) or [this](https://www.researchgate.net/publication/278329159_Decision_Pattern_Analysis_as_a_General_Framework_for_Studying_Individual_Differences_in_Decision_Making)). Similar to Cronbach's alpha, a value closer to 1 and further from zero indicates greater internal consistency.
+
+We can still calculate split-half reliability for variables that do not have this problem! SO let's do this with our extraversion data as follows:
+
+```{r}
+# Calculating total score...
+score_e <- rowMeans(d[, c(TRUE, FALSE)])  # with even items
+score_o <- rowMeans(d[, c(FALSE, TRUE)])  # with odd items
+
+# Correlating scores from even and odd items
+r <- cor(score_e, score_o)
+r
+
+# Adjusting with the Spearman-Brown prophecy formula
+(2 * r) / (1 + r)
+```
+
+Thus, in this case, the split-half reliability approach yields an internal consistency estimate of `r fashion((2 * r) / (1 + r))`.
+
+## Composite reliability
+
+The final method for calculating internal consistency that we'll cover is composite reliability. Where possible, my personal preference is to use this approach. Although it's not perfect, it takes care of many inappropriate assumptions that measures like Cronbach's alpha make. If the specificities interest you, I suggest reading this [post](http://zencaroline.blogspot.com.au/2007/06/composite-reliability.html).
+
+Composite reliability is based on the factor loadings in a confirmatory factor analysis (CFA). In the case of a unidimensional scale (like extraversion here), we define a one-factor CFA, and then use the factor loadings to compute our internal consistency estimate. I won't go into the detail, but we can interpret a composite reliability score similarly to any of the other metrics covered here (closer to one indicates better internal consistency). We'll fit our CFA model using the [lavaan](https://cran.r-project.org/web/packages/lavaan/index.html) package as follows:
+
+```{r, warning = F, message = F}
+library(lavaan)
+
+# Define the model
+items <- paste(names(d), collapse = "+")
+model <- paste("extraversion", items, sep = "=~")
+model
+
+# Fit the model
+fit <- cfa(model, data = d)
+```
+
+There are various ways to get to the composite reliability from this model. We'll extract the standardized factor loadings and work with those:
+
+```{r}
+sl <- standardizedSolution(fit)
+sl <- sl[sl$op == "=~", "est.std"]
+names(sl) <- names(d)
+sl  # These are the standardized factor loadings for each item
+```
+
+We then obtain the composite reliability via the following:
+
+```{r}
+# Compute residual variance in each item
+re <- 1 - sl^2
+
+# Compute composite Reliability
+sum(sl)^2 / (sum(sl)^2 + sum(re))
+```
+
+There you have it. The composite reliability for the extraversion factor is `r fashion(sum(sl)^2 / (sum(sl)^2 + sum(re)))`.
+
+One appealing aspect of composite reliability is that we can calculate it for multiple factors in the same model. For example, say we had included all personality items in a CFA with five factors, we could do the above calculations separately for each factor and obtain their composite reliabilities.
+
+Just to finish off, I'll mention that you can use the standardised factor loadings to visualise more information like we did earlier with the correlations. I'll leave this part up to you!
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
