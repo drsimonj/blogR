@@ -199,18 +199,23 @@ model
 fit <- cfa(model, data = d)
 ```
 
-There are various ways to get to the composite reliability from this model. We'll extract the standardized factor loadings and work with those:
+There are various ways to get to the composite reliability from this model. After receiving a great suggestion from [Gaming Dude](https://twitter.com/Gaming_Dude/status/769165779854123008), a nice approach is to use `reliability()` from the [semTools](https://cran.r-project.org/web/packages/semTools/index.html) package as follows:
+
+```{r, warning = F, message = F}
+library(semTools)
+reliability(fit)
+```
+
+You can see that this function returns a matrix with five reliability estimates for our factor (including Cronbach's alpha). In this case, we're interested in `omega`, but looking across the range is always a good idea. A nice advantage to this function is that it will return the reliability estimates for all latent factors in a more complex model!
+
+Below is the original method I had posted that involves a "by-hand" extraction of the factor loadings and computation of the omega composite reliability.
 
 ```{r}
 sl <- standardizedSolution(fit)
 sl <- sl$est.std[sl$op == "=~"]
 names(sl) <- names(d)
 sl  # These are the standardized factor loadings for each item
-```
 
-We then obtain the composite reliability via the following:
-
-```{r}
 # Compute residual variance of each item
 re <- 1 - sl^2
 
@@ -218,11 +223,7 @@ re <- 1 - sl^2
 sum(sl)^2 / (sum(sl)^2 + sum(re))
 ```
 
-There you have it. The composite reliability for the extraversion factor is `r fashion(sum(sl)^2 / (sum(sl)^2 + sum(re)))`.
-
-One appealing aspect of composite reliability is that we can calculate it for multiple factors in the same model. For example, say we had included all personality items in a CFA with five factors, we could do the above calculations separately for each factor and obtain their composite reliabilities.
-
-Just to finish off, I'll mention that you can use the standardised factor loadings to visualise more information like we did earlier with the correlations. I'll leave this part up to you!
+There you have it. The reason for me mentioning this approach is that it will give you an idea of how to extract the factor loadings if you want to visualise more information like we did earlier with the correlations. I'll leave this part up to you!
 
 ## Sign off
 
