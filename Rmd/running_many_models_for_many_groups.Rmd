@@ -1,0 +1,628 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.height = 3,
+  fig.width = 4,
+  fig.align = "center"
+)
+```
+
+Want to compare the results of many models, compare the same model for different groups, or both - compare the results of many models for different groups? This post is for you.
+
+```{r init-example, message = FALSE}
+# # install.packages("devtools")
+# # devtools::install_github("hadley/tidyverse")
+# library(tidyverse)
+# library(broom)
+# 
+# # library(tibble)
+# # library(dplyr)
+# # library(tidyr)
+# # library(purrr)
+# # library(broom)
+# # library(ggplot2)
+# 
+# d <- mtcars
+# 
+# # Same model, different groups ---------------
+# 
+# # Fitted model results for each group
+# results <- d %>%
+#              nest(-vs) %>%  # Splits into data based on groups
+#              mutate(fits = map(data, ~ lm(mpg ~ hp, data = .)))
+# 
+# # Get R-Squared values
+# results$fits %>% map(glance) %>% map_dbl(~ .$r.squared)
+# 
+# # Plotting predicted
+# results %>%
+#   mutate(predicted = map(fits, augment)) %>% 
+#   unnest(predicted) %>% 
+#   ggplot(aes(x = mpg, y = .fitted)) +
+#   geom_abline(intercept = 0, slope = 1, linetype = 2) +
+#     geom_segment(aes(xend = mpg, yend = mpg), alpha = .3) +
+#     geom_point() +
+#     facet_grid(vs ~ .) +
+#     theme_bw()
+# 
+# 
+# # Many models ----------------------
+# 
+# # Define our models
+# models <- tribble(
+#   ~f,   ~params,
+#   "lm", "mpg ~ hp",
+#   "lm", "mpg ~ hp + wt",
+#   "lm", "mpg ~ hp + wt + disp"
+# )
+# 
+# # Generate results and store model
+# results <- models %>%
+#              mutate(fits = invoke_map(f, params, data = d)) %>%
+#              unite(model, f, params, sep = ": ")
+# 
+# # Plot results
+# results %>%
+#   mutate(predicted = map(fits, augment)) %>% 
+#   unnest(predicted) %>% 
+#   ggplot(aes(x = mpg, y = .fitted)) +
+#   geom_abline(intercept = 0, slope = 1, linetype = 2) +
+#     geom_segment(aes(xend = mpg, yend = mpg), alpha = .3) +
+#     geom_point() +
+#     facet_grid(. ~ model) +
+#     theme_bw()
+# 
+# 
+# # Groups AND models -------------------
+# 
+# # see these slides: http://ijlyttle.github.io/isugg_purrr/presentation.html#(34)
+# 
+# # Function for invoking many models in a tribble()
+# # on a data frame
+# invoke_models <- function(.data, model_tribble){
+#   model_tribble %>%
+#     mutate(fits = invoke_map(f, params, data = .data)) %>% 
+#     unite(model, f, params, sep = ": ")
+# }
+# 
+# # Define models
+# models <- tribble(
+#   ~f,   ~params,
+#   "lm", "mpg ~ hp",
+#   "lm", "mpg ~ hp + wt",
+#   "lm", "mpg ~ hp + wt + disp"
+# )
+# 
+# # Fit the models
+# results <- d %>%
+#              nest(-vs) %>%
+#              mutate(fits = map(data, ~ (invoke_models(., models)))) %>% 
+#              unnest(fits)  # add `.drop = FALSE` to keep the data
+# 
+# # Plot results
+# results %>%
+#   mutate(predicted = map(fits, augment)) %>% 
+#   unnest(predicted) %>% 
+#   ggplot(aes(x = mpg, y = .fitted)) +
+#   geom_abline(intercept = 0, slope = 1, linetype = 2) +
+#     geom_segment(aes(xend = mpg, yend = mpg), alpha = .3) +
+#     geom_point() +
+#     facet_grid(vs ~ model) +
+#     theme_bw()
+# 
+# # With two factors ------------------------
+# 
+# results <- d %>%
+#              nest(-am, - cyl) %>% 
+#              mutate(am = factor(am, levels = c(0, 1),
+#                                 labels = c("automatic", "manual")),
+#                     cyl = paste("cyl", cyl, sep = ": ")) %>% 
+#              mutate(fits = map(data, ~ (invoke_models(., models)))) %>% 
+#              unnest(fits)
+# 
+# results %>%
+#   mutate(predicted = map(fits, augment)) %>% 
+#   unnest(predicted) %>% 
+#   ggplot(aes(x = mpg, y = .fitted)) +
+#   geom_abline(intercept = 0, slope = 1, linetype = 2) +
+#     geom_segment(aes(xend = mpg, yend = mpg), alpha = .3) +
+#     geom_point() +
+#     facet_grid(am + cyl ~ model) +
+#     theme_bw()
+# 
+# 
+# 
+# #####################################################
+# # Using flights weather data
+# #####################################################
+# library(nycflights13)
+# d <- nycflights13::weather
+# 
+# # Function for invoking many models in a tribble()
+# # on a data frame
+# invoke_models <- function(.data, model_tribble){
+#   model_tribble %>%
+#     mutate(fits = invoke_map(f, params, data = .data)) %>% 
+#     unite(model, f, params, sep = ": ")
+# }
+# 
+# # Define models
+# models <- tribble(
+#   ~f,   ~params,
+#   "lm", "humid ~ precip",
+#   "lm", "humid ~ precip + wind_dir",
+#   "lm", "humid ~ precip + wind_dir + visib"
+# )
+# 
+# # Fit the models
+# results <- d %>%
+#              nest(-origin) %>%
+#              mutate(fits = map(data, ~ (invoke_models(., models)))) %>% 
+#              unnest(fits)  # add `.drop = FALSE` to keep the data
+# 
+# # Plot results
+# results %>%
+#   mutate(predicted = map(fits, augment)) %>% 
+#   unnest(predicted) %>% 
+#   ggplot(aes(x = humid, y = .fitted)) +
+#   geom_abline(intercept = 0, slope = 1, linetype = 2) +
+#     geom_segment(aes(xend = humid, yend = humid), alpha = .3) +
+#     geom_point() +
+#     facet_grid(origin ~ model) +
+#     theme_bw()
+
+```
+
+## Important things to know
+
+This section summarises a few of the most relevant things we need to know up front.
+
+### One of many approaches
+
+There are many ways to tackle this problem. We'll cover a particular approach that I like, but be mindful that there are plenty of alternatives out there. If you have a better way, please contact me.
+
+### Tidyverse packages
+
+We'll be using functions from many tidyverse packages like dplyr and ggplot2, as well as the tidy modelling package [broom](https://cran.r-project.org/web/packages/broom/index.html). If you're unfamiliar with these and want to learn more, a good place to get started is Hadley Wickham's [R for Data Science](http://r4ds.had.co.nz/). Let's load these as follows (making use of Hadley's new [tidyverse](https://cran.r-project.org/web/packages/tidyverse/index.html) package):
+ 
+```{r}
+library(tidyverse)
+library(broom)
+```
+
+### ggplots of actual against predicted values
+
+We'll be plotting actual data points against their predicted values for a given model. Below is an annotated example of how we'll generate such a plot. For more detailed reading, take a look at my previous post on [visualising residuals](https://drsimonj.svbtle.com/visualising-residuals).
+
+```{r plot-eg}
+# Fit a regression model predicting Miles Per Gallon (mpg)
+# from the mtcars data set
+fit <- lm(mpg ~ hp, data = mtcars)
+
+# Extract actual data and model results.
+d <- augment(fit)
+
+# Create a plot of the actual mpg data against the predicted (.fitted) results
+ggplot(d, aes(y = .fitted, x = mpg, xend = mpg, yend = mpg)) +
+  # Add a dotted line of perfect fit. Points on or near this line are well
+  # predicted by the model.
+  geom_abline(intercept = 0, slope = 1, linetype = 2) +
+  # Add paths that join the points to the line of perfect fit
+  geom_segment(alpha = .3) +
+  # Add the points themselves
+  geom_point() +
+  # Add a plain theme
+  theme_bw()
+```
+
+Despite Hadley Wickham's (joke?) vendetta against `theme_bw()`, [Sean Taylor's poll](https://twitter.com/seanjtaylor/status/766050630397931521) showed that it's a clear winner :)
+
+### Tibbles and Tribbles
+
+We'll be using tibbles (a modern data frame) and hand-creating some with `tribble()` like in the following example:
+
+```{r}
+tribble(
+  ~f,   ~params,
+  "lm", "mpg ~ hp",
+  "lm", "mpg ~ hp + wt",
+  "lm", "mpg ~ hp + wt + disp"
+)
+```
+
+In `tribble()`, we define columns in the form `~x`, and provide comma separated values for the cells. The example above is a tibble containing a column of function calls (`f`) and a column of parameters to those functions (`params`).
+
+### `nest()`
+
+We'll `nest()` our data sets in tibbles to split them up based on different groupsfor separate analysis. For example, say we want to split the mtcars data set into groups based on the number of cylinders (`cyl`) a car has, we'll do the following:
+
+```{r}
+mtcars %>% nest(-cyl)
+```
+
+The data set (`mtcars`) is piped (`%>%`) into `nest()`, but dropping the categorical column (`-cyl`). This results in a tibble with:
+
+- A row for each group in our categorical variable (`cyl`).
+- A column containing these groups.
+- A `data` column of tibbles. Each tibble contains the original data split into chunks based on the categorical variabl groups. For example, the tibble in the first row contains all of the mtcars data for cars with 6 cylinders.
+
+Feeling uncomfortable at this point? This post may be too advanced for you, but perservence will hopefully pay off. Let's get to it!
+
+## Many groups, one model
+
+We'll start by running a specific statistical model separately for many groups in our data set. The general approach is to:
+
+1. `nest()` our data set by groups.
+2. Add a column with the model fitted to data for each group (using `mutate()` and `map()`).
+3. Extract the predicted values (with `augment()` if possible).
+4. `unnest()` the predicted values.
+5. Plot results.
+
+Let's continue with the above example in which our model is a linear regression of cars' Miles Per Gallon (`mpg`) on Horse power (`hp`). Now, however, say that we're interested in how the model fits depending on the number of cylinders a car has (`cyl`). So, instead of running the regression on all of the data at once, we want to run the regression with all 4-cylinder cars, then with all 6-cylinder cars, then with all 8-cylinder cars.
+
+### Steps 1 and 2: nesting data and fitting model
+
+How to `nest()` the data (Step 1) is shown above. We'll add the fitted model column (Step 2) by adding the `mutate()` line below:
+
+```{r}
+mtcars %>% 
+  nest(-cyl) %>% 
+  mutate(fits = map(data, ~ lm(mpg ~ hp, data = .)))
+```
+
+We now have a column called `fits`. Each cell (displaying `<S3: lm>`) is a fitted regression model predicting `mpg` with `hp` and given the `data` in the corresponding row. For example, the fit in row one is based on the data for cars with 6 cylinders.
+
+This was achieved by iterating through each cell in the `data` column with `map()`. For each cell, we run the regression model `lm(mpg ~ hp)`. The `data = .` part refers to the `data` argument of `lm()`, with the `.` specifying that the regression use the data from the current cell. Basically, the regression is being run separately for each group of data, and the corresponding results are being saved in the `fits` column. If this doesn't make sense to you, it wouldn't hurt to read up a little on iterations and the purrr package [here](http://r4ds.had.co.nz/iteration.html).
+
+### Step 3: extracting fitted values
+
+Next we want to extract (`augment()`) the predicted (`.fitted`) values by adding the following to `mutate()`.
+
+```{r}
+mtcars %>% 
+  nest(-cyl) %>% 
+  mutate(fits = map(data, ~ lm(mpg ~ hp, data = .)),
+         predicted = map(fits, augment))
+```
+
+This extracts all of the row-level information from each fitted model. Right now, however, all of this information is buried/nested in tibbles.
+
+### Step 4: `unnest()` the predicted values.
+
+Let's `unnest()` it as follows:
+
+```{r}
+mtcars %>% 
+  nest(-cyl) %>% 
+  mutate(fits = map(data, ~ lm(mpg ~ hp, data = .)),
+         predicted = map(fits, augment)) %>% 
+  unnest(predicted)
+```
+
+We now have direct access to the actual (`mpg`) and predicted (`.fitted`) values from each regression model.
+
+### Step 5: plotting results
+
+Finally, we plot the results similarly to the ggplot2 example shown earlier, but with the addition of `facet_grid()` to split the results into separate panels:
+
+```{r}
+mtcars %>% 
+  nest(-cyl) %>% 
+  mutate(fits = map(data, ~ lm(mpg ~ hp, data = .)),
+         predicted = map(fits, augment)) %>% 
+  unnest(predicted) %>% 
+  ggplot(aes(y = .fitted, x = mpg, xend = mpg, yend = mpg)) +
+    geom_abline(intercept = 0, slope = 1, linetype = 2) +
+    geom_segment(alpha = .3) +
+    geom_point() +
+    theme_bw() +
+    facet_grid(cyl ~ .)
+```
+
+Remember, this plot does not show the results of one regression model separately for each group. This plot shows the results of three separate regression models, one for each group in `cyl`.
+
+## One group, many models
+
+Next, let's look at how we might run and compare multiple models on our entire data set ("one" group). The general approach is:
+
+1. Define a tibble of model names, function calls, and parameters with `tribble()`.
+2. Save the fits of these models to the data as a new column (via `mutate()` and `invoke_map()`).
+3. Extract the predicted values (with `augment()` if possible).
+4. `unnest()` the predicted values.
+5. Plot results.
+
+Note that Steps 3 - 5 are the same as before.
+
+Let's try to compare the results of three linear regressions of `mpg` on an increasing number of predictors.
+
+### Step 1: Define tibble of models
+
+We'll define the models as follows:
+
+```{r}
+d <- tribble(
+  ~mod,           ~f,  ~params,
+  "1 predictor",  lm,  mpg ~ hp,
+  "2 predictors", lm,  mpg ~ hp + disp,
+  "3 predictors", lm,  mpg ~ hp + disp + wt
+)
+```
+
+What are the columns?
+
+- `mod` contains labels to be used in our plot.
+- `f` is the model function.
+- `params` are the unique parameters for the model function.
+
+### Step 2: Fit the models
+
+Fit the models by iterating row-wise through the model function (`f`) and parameters (`params`) using `invoke_map()`:
+
+```{r}
+d %>% mutate(fits = invoke_map(f, params, data = mtcars))
+```
+
+### Steps 3 - 5: Extract, unnest, and plot fitted values
+
+This is much the same as our earlier work, but with a minor change to the `facet_grid()` part of the plot:
+
+```{r}
+d %>%
+  mutate(fits = invoke_map(f, params, data = mtcars),
+         predicted = map(fits, augment)) %>% 
+  unnest(predicted) %>% 
+  ggplot(aes(x = mpg, y = .fitted)) +
+    geom_abline(intercept = 0, slope = 1, linetype = 2) +
+    geom_segment(aes(xend = mpg, yend = mpg), alpha = .3) +
+    geom_point() +
+    theme_bw() +
+    facet_grid(. ~ mod)
+```
+
+## Many groups, many models
+
+Time to bring it all together to compare multiple models, run separately on multiple groups of our data set. Our general approach will be:
+
+1. Define an `invoke_models()` function to handle iteration of many models.
+2. Define a tibble of models.
+3. `nest()` data by groups
+4. Fit all models to each group of the data.
+5. `unnest()` the multiple model fits.
+6. Extract the predicted values.
+7. `unnest()` the predicted values.
+8. Plot results.
+
+### Step 1: define `invoke_models()`
+
+We need to define a new function to handle the iteration of multiple models. This is a general implemtation of Step 2 in the "One group, many models" section of this post:
+
+```{r}
+# Function for invoking many models in a tribble()
+# on a data frame
+invoke_models <- function(.data, model_tribble){
+  model_tribble %>%
+    mutate(fits = invoke_map(f, params, data = .data))
+}
+```
+
+We'll use this soon.
+
+### Step 2: Define tibble of models
+
+This is a repeat of earlier work. Let's rename this table as `models` to keep it separate from our data set this time.
+
+```{r}
+models <- tribble(
+  ~mod,           ~f,  ~params,
+  "1 predictor",  lm,  mpg ~ hp,
+  "2 predictors", lm,  mpg ~ hp + disp,
+  "3 predictors", lm,  mpg ~ hp + disp + wt
+)
+```
+
+### Step 3: `nest()` data by groups
+
+We've done this, but here's a reminder:
+
+```{r}
+mtcars %>% 
+  nest(-cyl)
+```
+
+### Step 4: Fit all models to all groups
+
+This part is a bit new, but it just combines aspects of the previous sections. To fit all of our models to all of our groups, we use our new function `invoke_models()` as follows:
+
+```{r}
+mtcars %>%
+  nest(-cyl) %>%
+  mutate(fits = map(data, ~invoke_models(., models)))
+```
+
+Notice how our `fits` are now tibbles? This is because we've fit three models per row! If you dig into these cells, each tibble is just like the tibble we created in Step 2 of the "One group, many models" section.
+
+### Step 5: `unnest()` the fitted models
+
+Let's `unnest()` these many fitted models as follows:
+
+```{r}
+mtcars %>%
+  nest(-cyl) %>%
+  mutate(fits = map(data, ~invoke_models(., models))) %>% 
+  unnest(fits)
+```
+
+Hopefully this should look a little more familiar. We can see that the `fits` column contains fitted models for different groups (`cyl`) AND different models (`mod`).
+
+### Steps 6 - 8: Extract and plot predicted values
+
+These final few steps are almost identical to the way we've gone about handling this challenge previously. There are just two small changes:
+
+- The `predicted` column is added in a separate `mutate()` call AFTER we `unnest(fits)`.
+- We now include our categorical variable (`cyl`) AND our model labels (`mod`) in `facet_grid()`:
+
+```{r}
+mtcars %>%
+  nest(-cyl) %>%
+  mutate(fits = map(data, ~invoke_models(., models))) %>% 
+  unnest(fits) %>% 
+  mutate(predicted = map(fits, augment)) %>% 
+  unnest(predicted) %>% 
+  ggplot(aes(y = .fitted, x = mpg, xend = mpg, yend = mpg)) +
+    geom_abline(intercept = 0, slope = 1, linetype = 2) +
+    geom_segment(alpha = .3) +
+    geom_point() +
+    theme_bw() +
+    facet_grid(cyl ~ mod)
+```
+
+
+```{r}
+# # Function for invoking many models in a tribble()
+# # on a data frame
+# invoke_models <- function(.data, model_tribble){
+#   model_tribble %>%
+#     mutate(fits = invoke_map(f, params, data = .data)) %>% 
+#     unite(model, f, params, sep = ": ")
+# }
+# 
+# # Define models
+# models <- tribble(
+#   ~f,   ~params,
+#   "lm", "mpg ~ hp",
+#   "lm", "mpg ~ hp + wt",
+#   "lm", "mpg ~ hp + wt + disp"
+# )
+# 
+# # Fit the models
+# results <- d %>%
+#              nest(-vs) %>%
+#              mutate(fits = map(data, ~ (invoke_models(., models)))) %>% 
+#              unnest(fits)  # add `.drop = FALSE` to keep the data
+# 
+# # Plot results
+# results %>%
+#   mutate(predicted = map(fits, augment)) %>% 
+#   unnest(predicted) %>% 
+#   ggplot(aes(x = mpg, y = .fitted)) +
+#   geom_abline(intercept = 0, slope = 1, linetype = 2) +
+#     geom_segment(aes(xend = mpg, yend = mpg), alpha = .3) +
+#     geom_point() +
+#     facet_grid(vs ~ model) +
+#     theme_bw()
+
+```
+
+
+
+
+
+## Extensions
+
+### Step 1: Define tibble of models
+
+Let's say we want to compare the ability of three models to predict `mpg` with `hp`, `disp`, and `wt`:
+
+- linear regression, `lm()`
+- regression tree, `rpart()`
+- random forest, `randomForest()`
+
+Note that the second two function comes from the [rpart](https://cran.r-project.org/web/packages/rpart/index.html) and [randomForest](https://cran.r-project.org/web/packages/randomForest/index.html) packages, so be sure to attach these as follows:
+
+```{r}
+library(rpart)
+library(randomForest)
+```
+
+We'll define the models as follows:
+
+```{r}
+d <- tribble(
+  ~mod,                ~f,             ~params,
+  "Linear Regression", "lm",           mpg ~ hp + disp + wt,
+  "Regression Tree",   "rpart",        mpg ~ hp + disp + wt,
+  "Random Forest",     "randomForest", mpg ~ hp + disp + wt
+)
+```
+
+### Step 2: Fit the models
+
+The models are fit as follows:
+
+```{r}
+d %>% mutate(fits = invoke_map(f, params, data = mtcars))
+```
+
+### Step 3: Extract fitted values
+
+Next we want to extract the predicted (`.fitted`) values. Unlike the prior examples, however, we can't simply use `augment()` from the broom package. This is 
+
+```{r}
+d %>%
+  mutate(fits = invoke_map(f, params, data = mtcars),
+         .fitted = map(fits, predict))
+```
+
+
+
+### Step 2: Fit the models
+
+The models are fit as follows:
+
+```{r}
+d %>% mutate(fits = invoke_map(f, params, data = mtcars))
+```
+
+### Step 3: Extract fitted values
+
+Next we want to extract the predicted (`.fitted`) values. Unlike the prior examples, however, we can't simply use `augment()` from the broom package. This is 
+
+```{r}
+# d %>%
+#   mutate(fits = invoke_map(f, params, data = mtcars),
+#          .fitted = map(fits, predict))
+```
+
+
+```{r}
+# results <- models %>%
+#              mutate(fits = invoke_map(f, params, data = d)) %>% 
+#              unite(model, f, params, sep = ": ")
+# 
+# # Plot results
+# results %>%
+#   mutate(predicted = map(fits, augment)) %>% 
+#   unnest(predicted) %>% 
+#   ggplot(aes(x = mpg, y = .fitted)) +
+#   geom_abline(intercept = 0, slope = 1, linetype = 2) +
+#     geom_segment(aes(xend = mpg, yend = mpg), alpha = .3) +
+#     geom_point() +
+#     facet_grid(. ~ model) +
+#     theme_bw()
+
+```
+
+
+
+
+
+## Acknowledgements
+
+This post was inspired by [this question](http://stackoverflow.com/questions/39238393/fitting-different-models-to-each-subset-of-data-in-r) (and answers that followed) on stackoverflow.
+
+After doing some searching, I also came across [these slides](http://ijlyttle.github.io/isugg_purrr/presentation.html#(34)) that cover a very similar approach. It never hurts to try and learn something from a few different perspectives to get a proper feel for it, so take a look.
+
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
