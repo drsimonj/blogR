@@ -16,166 +16,41 @@ knitr::opts_chunk$set(
 Want to compare the results of many models, compare the same model for different groups, or both - compare the results of many models for different groups? This post is for you.
 
 ```{r init-example, message = FALSE}
-# # install.packages("devtools")
-# # devtools::install_github("hadley/tidyverse")
-# library(tidyverse)
-# library(broom)
-# 
-# # library(tibble)
-# # library(dplyr)
-# # library(tidyr)
-# # library(purrr)
-# # library(broom)
-# # library(ggplot2)
-# 
-# d <- mtcars
-# 
-# # Same model, different groups ---------------
-# 
-# # Fitted model results for each group
-# results <- d %>%
-#              nest(-vs) %>%  # Splits into data based on groups
-#              mutate(fits = map(data, ~ lm(mpg ~ hp, data = .)))
-# 
-# # Get R-Squared values
-# results$fits %>% map(glance) %>% map_dbl(~ .$r.squared)
-# 
-# # Plotting predicted
-# results %>%
-#   mutate(predicted = map(fits, augment)) %>% 
-#   unnest(predicted) %>% 
-#   ggplot(aes(x = mpg, y = .fitted)) +
-#   geom_abline(intercept = 0, slope = 1, linetype = 2) +
-#     geom_segment(aes(xend = mpg, yend = mpg), alpha = .3) +
-#     geom_point() +
-#     facet_grid(vs ~ .) +
-#     theme_bw()
-# 
-# 
-# # Many models ----------------------
-# 
-# # Define our models
-# models <- tribble(
-#   ~f,   ~params,
-#   "lm", "mpg ~ hp",
-#   "lm", "mpg ~ hp + wt",
-#   "lm", "mpg ~ hp + wt + disp"
-# )
-# 
-# # Generate results and store model
-# results <- models %>%
-#              mutate(fits = invoke_map(f, params, data = d)) %>%
-#              unite(model, f, params, sep = ": ")
-# 
-# # Plot results
-# results %>%
-#   mutate(predicted = map(fits, augment)) %>% 
-#   unnest(predicted) %>% 
-#   ggplot(aes(x = mpg, y = .fitted)) +
-#   geom_abline(intercept = 0, slope = 1, linetype = 2) +
-#     geom_segment(aes(xend = mpg, yend = mpg), alpha = .3) +
-#     geom_point() +
-#     facet_grid(. ~ model) +
-#     theme_bw()
-# 
-# 
-# # Groups AND models -------------------
-# 
-# # see these slides: http://ijlyttle.github.io/isugg_purrr/presentation.html#(34)
-# 
-# # Function for invoking many models in a tribble()
-# # on a data frame
-# invoke_models <- function(.data, model_tribble){
-#   model_tribble %>%
-#     mutate(fits = invoke_map(f, params, data = .data)) %>% 
-#     unite(model, f, params, sep = ": ")
-# }
-# 
-# # Define models
-# models <- tribble(
-#   ~f,   ~params,
-#   "lm", "mpg ~ hp",
-#   "lm", "mpg ~ hp + wt",
-#   "lm", "mpg ~ hp + wt + disp"
-# )
-# 
-# # Fit the models
-# results <- d %>%
-#              nest(-vs) %>%
-#              mutate(fits = map(data, ~ (invoke_models(., models)))) %>% 
-#              unnest(fits)  # add `.drop = FALSE` to keep the data
-# 
-# # Plot results
-# results %>%
-#   mutate(predicted = map(fits, augment)) %>% 
-#   unnest(predicted) %>% 
-#   ggplot(aes(x = mpg, y = .fitted)) +
-#   geom_abline(intercept = 0, slope = 1, linetype = 2) +
-#     geom_segment(aes(xend = mpg, yend = mpg), alpha = .3) +
-#     geom_point() +
-#     facet_grid(vs ~ model) +
-#     theme_bw()
-# 
-# # With two factors ------------------------
-# 
-# results <- d %>%
-#              nest(-am, - cyl) %>% 
-#              mutate(am = factor(am, levels = c(0, 1),
-#                                 labels = c("automatic", "manual")),
-#                     cyl = paste("cyl", cyl, sep = ": ")) %>% 
-#              mutate(fits = map(data, ~ (invoke_models(., models)))) %>% 
-#              unnest(fits)
-# 
-# results %>%
-#   mutate(predicted = map(fits, augment)) %>% 
-#   unnest(predicted) %>% 
-#   ggplot(aes(x = mpg, y = .fitted)) +
-#   geom_abline(intercept = 0, slope = 1, linetype = 2) +
-#     geom_segment(aes(xend = mpg, yend = mpg), alpha = .3) +
-#     geom_point() +
-#     facet_grid(am + cyl ~ model) +
-#     theme_bw()
-# 
-# 
-# 
-# #####################################################
-# # Using flights weather data
-# #####################################################
-# library(nycflights13)
-# d <- nycflights13::weather
-# 
-# # Function for invoking many models in a tribble()
-# # on a data frame
-# invoke_models <- function(.data, model_tribble){
-#   model_tribble %>%
-#     mutate(fits = invoke_map(f, params, data = .data)) %>% 
-#     unite(model, f, params, sep = ": ")
-# }
-# 
-# # Define models
-# models <- tribble(
-#   ~f,   ~params,
-#   "lm", "humid ~ precip",
-#   "lm", "humid ~ precip + wind_dir",
-#   "lm", "humid ~ precip + wind_dir + visib"
-# )
-# 
-# # Fit the models
-# results <- d %>%
-#              nest(-origin) %>%
-#              mutate(fits = map(data, ~ (invoke_models(., models)))) %>% 
-#              unnest(fits)  # add `.drop = FALSE` to keep the data
-# 
-# # Plot results
-# results %>%
-#   mutate(predicted = map(fits, augment)) %>% 
-#   unnest(predicted) %>% 
-#   ggplot(aes(x = humid, y = .fitted)) +
-#   geom_abline(intercept = 0, slope = 1, linetype = 2) +
-#     geom_segment(aes(xend = humid, yend = humid), alpha = .3) +
-#     geom_point() +
-#     facet_grid(origin ~ model) +
-#     theme_bw()
+library(tidyverse)
+library(rpart)
+library(randomForest)
+
+### THIS IS UNPOLISHED
+
+## BETTER TOCONVERT TO POST ABOUT REGRESSION MODELS ONLY
+
+invoke_models <- function(.data, model_tribble){
+  model_tribble %>%
+    mutate(fits = invoke_map(f, params, data = .data),
+           .fitted = map(fits, predict))
+}
+
+models <- tribble(
+  ~mod,                ~f,             ~params,
+  "Linear Regression", "lm",           list(formula = mpg ~ .),
+  "Regression Tree",   "rpart",        list(formula = mpg ~ ., method = "anova"),
+  "Random Forest",     "randomForest", list(formula = mpg ~ .)
+)
+
+mtcars %>%
+  nest(-cyl) %>%
+  mutate(cyl = paste(cyl, "Cyl"),
+         fits = map(data, ~invoke_models(., models)),
+         mpg = map(data, ~ .$mpg)) %>% 
+  select(-data) %>% 
+  unnest(fits, .drop = F) %>% 
+  unnest(mpg, .fitted) %>% 
+  ggplot(aes(y = .fitted, x = mpg, xend = mpg, yend = mpg)) +
+    geom_abline(intercept = 0, slope = 1, linetype = 2) +
+    geom_segment(alpha = .3) +
+    geom_point() +
+    theme_bw() +
+    facet_grid(cyl ~ mod)
 
 ```
 
