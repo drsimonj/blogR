@@ -8,7 +8,8 @@ knitr::opts_chunk$set(
   comment = "#>",
   fig.path = "figs/",
   fig.height = 3,
-  fig.width = 3
+  fig.width = 4,
+  fig.align = "center"
 )
 ```
 

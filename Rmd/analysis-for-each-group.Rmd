@@ -8,16 +8,294 @@ knitr::opts_chunk$set(
   comment = "#>",
   fig.path = "figs/",
   fig.height = 3,
-  fig.width = 3
+  fig.width = 4,
+  fig.align = "center"
 )
 ```
 
+Ever wanted to run a model on separate groups of data? Read on!
+
+Here's an example showing the results of a regression model (actual v predicted values) predicting the Miles per Gallon of automatic and manual cars.
 
 ```{r init-example, message = FALSE}
-
+library(tidyverse)
+library(broom)
+mtcars %>% 
+  nest(-am) %>% 
+  mutate(am = factor(am, levels = c(0, 1), labels = c("automatic", "manual")),
+         fit = map(data, ~ lm(mpg ~ hp + wt + disp, data = .)),
+         results = map(fit, augment)) %>% 
+  unnest(results) %>% 
+  ggplot(aes(x = mpg, y = .fitted)) +
+    geom_abline(intercept = 0, slope = 1, alpha = .2) +  # Line of perfect fit
+    geom_point() +
+    facet_grid(am ~ .) +
+    labs(x = "Miles Per Gallon", y = "Predicted Value") +
+    theme_bw()
 ```
 
+## Getting Started
 
+A few things to do/keep in mind before getting started...
+
+### A lot of detail for novices
+
+I started this post after working on a larger problem for which I couldn't add detail about lower-level aspects. So this post is very detailed about a particular aspect of a larger problem and, thus, best suited for novice to intermediate R users.
+
+### One of many approaches
+
+There are many ways to tackle this problem. We'll cover a particular approach that I like, but be mindful that there are plenty of alternatives out there.
+
+### The Tidyverse
+
+We'll be using functions from many tidyverse packages like dplyr and ggplot2, as well as the tidy modelling package [broom](https://cran.r-project.org/web/packages/broom/index.html). If you're unfamiliar with these and want to learn more, a good place to get started is Hadley Wickham's [R for Data Science](http://r4ds.had.co.nz/). Let's load these as follows (making use of the new [tidyverse](https://cran.r-project.org/web/packages/tidyverse/index.html) package):
+ 
+```{r}
+library(tidyverse)
+library(broom)
+```
+
+### mtcars
+
+Ah, `mtcars`. My favourite data set. We're gong to use this data set for most examples. Be sure to check it out if you're unfamiliar with it! Run `?mtcars`, or here's a quick reminder:
+
+```{r}
+head(mtcars)
+```
+
+Let's get to it.
+
+## Nesting Tibbles
+
+Nested tibbles - sounds like some rare bird! For those who aren't familiar with them, "[tibbles are a modern take on data frames](https://cran.r-project.org/web/packages/tibble/vignettes/tibble.html)". For our purposes here, you can think of a tibble like a data frame. It just prints to the console a little differently. Click the quote to learn more from the tibble vignette.
+
+So what do I mean by nested tibbles? Well, this is when we take sets of columns and rows from one data frame/tibble, and save (nest) them as cells in a new tibble. Make sense? No? Not to worry. An example will likley explain better.
+
+We do this with `nest()` from the tidyr package (which is loaded with `library(tidyverse)`). Perhaps the most common use of this function, and exactly how we'll use it, is to pipe in a tibble or data frame, and drop one or more categorical variables using `-`. For example, let's `nest()` the `mtcars` data set and drop the cylinder (`cyl`) column:
+
+```{r}
+mtcars %>% nest(-cyl)
+```
+
+This looks interesting. We have one column that makes sense: `cyl` lists each of the levels of the cylinder variable. But what's that `data` colum? Looks like tibbles. Let's look into the tibble in the row where `cyl == 4` to learn more:
+
+```{r}
+d <- mtcars %>% nest(-cyl)
+d$data[d$cyl == 4]
+```
+This looks a bit like the `mtcars` data, but did you notice that the `cyl` column isn't there and that there's only 11 rows? This is because we see a subset of the complete `mtcars` data set where `cyl == 4`. By using `nest(-cyl)`, we've collapsed the entire `mtcars` data set into two columns and three rows (one for each category in `cyl`).
+
+Aside, it's easy to dissect data by multiple categorical variables further by dropping them in `nest()`. For example, let's nest our data by the number of cylinders AND whether the car is automatic or manual (`am`) as follows:
+
+```{r}
+mtcars %>% nest(-cyl, -am)
+```
+
+If you compare carefully to the above, you'll notice that each tibble in `data` has 9 columns instead of 10. This is because we've now extracted `am`. Also, there are far fewer rows in each tibble. This is because each tibble contains a much smaller subset of the data. E.g., instead of all the data for cars with 4 cylinders being in one cell, this data is further split into two cells -- one for automatic, and one for manual cars.
+
+## Fitting models to nested data
+
+Now that we can separate data for each group(s), we can fit a model to each tibble in `data` using `map()` from the purrr package (also `tidyverse`). We're going to add the results to our existing tibble using `mutate()` from the dplyr package (again, `tidyverse`). Here's a generic version of our pipe with adjustable parts in caps:
+
+```{r, eval = F}
+DATA_SET %>% 
+  nest(-CATEGORICAL_VARIABLE) %>% 
+  mutate(fit = map(data, ~ MODEL_FUNCTION(...)))
+```
+
+Where you see `...`, using a single dot (`.`) will represent each nested tibble 
+
+Let's start with a silly but simple example: a student *t*-test examining whether `mpg` is significantly greater than 0 for each group of cars with different cylinders:
+
+```{r}
+mtcars %>% 
+  nest(-cyl) %>% 
+  mutate(fit = map(data, ~ t.test(.$mpg)))
+```
+
+We'll talk about the new `fit` column in a moment. First, let's discuss the new line, `mutate(fit = map(data, ~ t.test(.$mpg)))`:
+
+- `mutate(fit = ...)` is a dplyr function that will add a new column to our tibble called `fit`. 
+- `map(data, ...)` is a purrr function that iterates through each cell of the `data` column (which has our nested tibbles).
+- `~ t.test(.$mpg)` is running the t.test for each cell. Because this takes place within `map()`, we must start with `~`, and use `.` whenever we want to reference the nested tibble that is being iterated on.
+
+What's each `<S3: htest>` in the `fit` column? It's the fitted `t.test()` model for each nested tibble. Just like we peeked into a single `data` cell, let's look into a single `fit` cell - for cars with 4 cylinders:
+
+```{r}
+d <- mtcars %>% 
+  nest(-cyl) %>% 
+  mutate(fit = map(data, ~ t.test(.$mpg)))
+d$fit[d$cyl == 4]
+```
+
+Looking good. So we now know how to `nest()` a data set by one or more groups, and fit a statistical model to the data corresponding to each each group.
+
+## Extracting fit information
+
+Our final goal is to obtain useful information from the fitted models. We could manually look into each `fit` cell, but this is tedious. Instead, we'll extract information from our fitted models by adding one or more lines to `mutate()`, and using `map_*(fit, ...)` to iterate through each fitted model. For example, the following extracts the `p.values` from each t.test into a new column called `p`:
+
+```{r}
+mtcars %>% 
+  nest(-cyl) %>% 
+  mutate(fit = map(data, ~ t.test(.$mpg)),
+         p   = map_dbl(fit, "p.value"))
+```
+
+`map_dbl()` is used because we want to return a number (a "double") rather than a list of objects (which is what `map()` does). Explaining the variants of `map()` and how to use them is well beyond the scope of this post. The important point here is that we can iterate through our fitted models in the `fit` column to extract information for each group of data. For more details, I recommend reading the ["The Map Functions" in R for Data Science](http://r4ds.had.co.nz/iteration.html#the-map-functions).
+
+### broom and unnest()
+
+In addition to extracting a single value like above, we can extract entire data frames of information generated via functions from the broom package (which are available for most of the common models in R). For example, broom provides the `glance()` function which returns a one-row data frame of model information. Let's extract this information into a new column called `results`:
+
+```{r}
+mtcars %>% 
+  nest(-cyl) %>% 
+  mutate(fit = map(data, ~ t.test(.$mpg)),
+         results = map(fit, glance))
+```
+
+If you extract information like this, the next thing you're likely to want to do is `unnest()` it as follows:
+
+```{r}
+mtcars %>% 
+  nest(-cyl) %>% 
+  mutate(fit = map(data, ~ t.test(.$mpg)),
+         results = map(fit, glance)) %>% 
+  unnest(results)
+```
+
+We've now unnested all of the model information, which includes the *t* value (`statistic`), the *p* value (`p.value`), and many others.
+
+We can do whatever we want with this information. For example, the below plots the group `mpg` means with confidence intervals generated by the t.test:
+
+```{r}
+mtcars %>% 
+  nest(-cyl) %>% 
+  mutate(fit = map(data, ~ t.test(.$mpg)),
+         results = map(fit, glance)) %>% 
+  unnest(results) %>% 
+  ggplot(aes(x = factor(cyl), y = estimate)) +
+    geom_bar(stat = "identity") +
+    geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = .2) +
+    labs(x = "Cylinders (cyl)", y = "Miles Per Gallon (mpg)")
+```
+
+## Regression
+
+Let's push ourselves and see if we can do the same sort of thing for liner regression. Say we want to examine whether the prediction of `mpg` by `hp`, `wt` and `disp`, differs for cars with different numbers of cylinders. The first significant change will be our `fit` variable, created as follows:
+
+```{r}
+mtcars %>% 
+  nest(-cyl) %>% 
+  mutate(fit = map(data, ~ lm(mpg ~ hp + wt + disp, data = .)))
+```
+
+That's it! Notice how everything else is the same. All we've done is swapped out a `t.test()` for `lm()`, using our variables and data in the appropriate places. Let's `glance()` at the model:
+
+```{r}
+mtcars %>% 
+  nest(-cyl) %>% 
+  mutate(fit = map(data, ~ lm(mpg ~ hp + wt + disp, data = .)),
+         results = map(fit, glance)) %>% 
+  unnest(results)
+```
+
+We haven't added anything we haven't seen already. Let's go and plot the R-squared values to see just how much variance is accounted for in each model:
+
+```{r}
+mtcars %>% 
+  nest(-cyl) %>% 
+  mutate(fit = map(data, ~ lm(mpg ~ hp + wt + disp, data = .)),
+         results = map(fit, glance)) %>% 
+  unnest(results) %>% 
+  ggplot(aes(x = factor(cyl), y = r.squared)) +
+    geom_bar(stat = "identity") +
+    labs(x = "Cylinders", y = expression(R^{2}))
+```
+
+It looks to me like the model performs poorer for cars with 8 cylinders than cars with 4 or 6 cylinders.
+
+## Row-wise values and `augment()`
+
+We'll cover one final addition: extracting row-wise data with broom's `augment()` function. Unlike `glance()`, `augment()` extracts information that matches every row of the original data. For example, the predicted or residual values of the original data given a particular model. If we have a model that `augment()` works with, we can add it to our mutate call just as we added `glance()`. For example, let's swap out `glance()` for `augment()` in the regression model above:
+
+```{r}
+mtcars %>% 
+  nest(-cyl) %>% 
+  mutate(fit = map(data, ~ lm(mpg ~ hp + wt + disp, data = .)),
+         results = map(fit, augment))
+```
+
+Our `results` column now contains data frames, each having as many rows as the original nested tibbles in the `data` columns. What happens when we `unnest()` it?
+
+```{r}
+mtcars %>% 
+  nest(-cyl) %>% 
+  mutate(fit = map(data, ~ lm(mpg ~ hp + wt + disp, data = .)),
+         results = map(fit, augment)) %>% 
+  unnest(results)
+```
+
+Wow, lots going on here! We've unnested the entire data set related to the fitted regression models, complete with information like predicted (`.fitted`) and residual (`.resid`) values. Below is a plot of these predicted values against the actual values. For more details on this, see my previous post on [plotting residuals](https://drsimonj.svbtle.com/visualising-residuals).
+
+```{r}
+mtcars %>% 
+  nest(-cyl) %>% 
+  mutate(fit = map(data, ~ lm(mpg ~ hp + wt + disp, data = .)),
+         results = map(fit, augment)) %>% 
+  unnest(results) %>% 
+  ggplot(aes(x = mpg, y = .fitted)) +
+    geom_abline(intercept = 0, slope = 1, alpha = .2) +  # Line of perfect fit
+    geom_point() +
+    facet_grid(cyl ~ .) +
+    theme_bw()
+```
+
+This figure is showing us the fitted results of three separate regression analyses: one for each subset of the `mtcars` data corresponding to cars with 4, 6, or 8 cylinders. As we know from above, the *R*^2^ value for cars with 8 cylinders is lowest, and it's somewhat evident from this plot (though the small sample sizes make it difficult to feel confident).
+
+## randomForest example
+
+For anyone looking to sink their teeth into something a little more complex, below is a fully worked example of examining the relative importance of variables in a `randomForest()` model. The model predicts the arrival delay of flights using time-related variables (departure time, year, month and day). Relevant to this post, we fit this model to the data separately for each of three airline carriers.
+
+Notice that this implements the same code we've been using so far, with just a few tweaks to select an appropriate data set and obtain information from the fitted models.
+
+The resulting plot suggests to us that the importance of a flight's `day` for predicting it's arrival delay varies depending on the carrier.  Specifically, it is reasonably informative for predicting the arrival delay of Pinnacle Airlines (`9E`), not so useful for Virgin America (`VX`), and practically useless for Alaska Airlines (`AS`).
+
+```{r, message = F}
+library(randomForest)
+library(nycflights13)
+
+# Convenience function to get importance information from a randomForest fit
+# into a data frame
+imp_df <- function(rf_fit) {
+  imp <- randomForest::importance(rf_fit)
+  vars <- rownames(imp)
+  imp %>% 
+    tibble::as_tibble() %>% 
+    dplyr::mutate(var = vars)
+}
+
+set.seed(123)
+flights %>% 
+  # Selecting data to work with
+  na.omit() %>% 
+  select(carrier, arr_delay, year, month, day, dep_time) %>% 
+  filter(carrier %in% c("9E", "AS", "VX")) %>% 
+  # Nesting data and fitting model
+  nest(-carrier) %>% 
+  mutate(fit = map(data, ~ randomForest(arr_delay ~ ., data = .,
+                                        importance = TRUE,
+                                        ntree = 100)),
+         importance = map(fit, imp_df)) %>% 
+  # Unnesting and plotting
+  unnest(importance) %>% 
+  ggplot(aes(x = `%IncMSE`, y = var, color = `%IncMSE`)) +
+  geom_segment(aes(xend = min(`%IncMSE`), yend = var), alpha = .2) +
+    geom_point(size = 3) +
+    facet_grid(. ~ carrier) +
+    guides(color = "none") +
+    theme_bw()
+```
 
 ## Sign off
 
