@@ -15,7 +15,7 @@ knitr::opts_chunk$set(
 
 Ever wanted to run a model on separate groups of data? Read on!
 
-Here's an example showing the results of a regression model (actual v predicted values) predicting the Miles per Gallon of automatic and manual cars.
+Here's an example of a regression model fitted to separate groups: predicting a car's Miles per Gallon with various attributes, but spearately for automatic and manual cars.
 
 ```{r init-example, message = FALSE}
 library(tidyverse)
@@ -85,7 +85,7 @@ d$data[d$cyl == 4]
 ```
 This looks a bit like the `mtcars` data, but did you notice that the `cyl` column isn't there and that there's only 11 rows? This is because we see a subset of the complete `mtcars` data set where `cyl == 4`. By using `nest(-cyl)`, we've collapsed the entire `mtcars` data set into two columns and three rows (one for each category in `cyl`).
 
-Aside, it's easy to dissect data by multiple categorical variables further by dropping them in `nest()`. For example, let's nest our data by the number of cylinders AND whether the car is automatic or manual (`am`) as follows:
+Aside, it's easy to dissect data by multiple categorical variables further by dropping them in `nest()`. For example, we can nest our data by the number of cylinders AND whether the car is automatic or manual (`am`) as follows:
 
 ```{r}
 mtcars %>% nest(-cyl, -am)
@@ -128,7 +128,7 @@ d <- mtcars %>%
 d$fit[d$cyl == 4]
 ```
 
-Looking good. So we now know how to `nest()` a data set by one or more groups, and fit a statistical model to the data corresponding to each each group.
+Looking good. So we now know how to `nest()` a data set by one or more groups, and fit a statistical model to the data corresponding to each group.
 
 ## Extracting fit information
 
@@ -145,7 +145,7 @@ mtcars %>%
 
 ### broom and unnest()
 
-In addition to extracting a single value like above, we can extract entire data frames of information generated via functions from the broom package (which are available for most of the common models in R). For example, broom provides the `glance()` function which returns a one-row data frame of model information. Let's extract this information into a new column called `results`:
+In addition to extracting a single value like above, we can extract entire data frames of information generated via functions from the broom package (which are available for most of the common models in R). For example, the `glance()` function returns a one-row data frame of model information. Let's extract this information into a new column called `results`:
 
 ```{r}
 mtcars %>% 
@@ -217,7 +217,7 @@ It looks to me like the model performs poorer for cars with 8 cylinders than car
 
 ## Row-wise values and `augment()`
 
-We'll cover one final addition: extracting row-wise data with broom's `augment()` function. Unlike `glance()`, `augment()` extracts information that matches every row of the original data. For example, the predicted or residual values of the original data given a particular model. If we have a model that `augment()` works with, we can add it to our mutate call just as we added `glance()`. For example, let's swap out `glance()` for `augment()` in the regression model above:
+We'll cover one final addition: extracting row-wise data with broom's `augment()` function. Unlike `glance()`, `augment()` extracts information that matches every row of the original data such as the predicted and residual values. If we have a model that `augment()` works with, we can add it to our mutate call just as we added `glance()`. Let's swap out `glance()` for `augment()` in the regression model above:
 
 ```{r}
 mtcars %>% 
@@ -226,7 +226,7 @@ mtcars %>%
          results = map(fit, augment))
 ```
 
-Our `results` column now contains data frames, each having as many rows as the original nested tibbles in the `data` columns. What happens when we `unnest()` it?
+Our `results` column again contains data frames, but each has as many rows as the original nested tibbles in the `data` columns. What happens when we `unnest()` it?
 
 ```{r}
 mtcars %>% 
@@ -236,7 +236,7 @@ mtcars %>%
   unnest(results)
 ```
 
-Wow, lots going on here! We've unnested the entire data set related to the fitted regression models, complete with information like predicted (`.fitted`) and residual (`.resid`) values. Below is a plot of these predicted values against the actual values. For more details on this, see my previous post on [plotting residuals](https://drsimonj.svbtle.com/visualising-residuals).
+Wow, there's a lot going on here! We've unnested the entire data set related to the fitted regression models, complete with information like predicted (`.fitted`) and residual (`.resid`) values. Below is a plot of these predicted values against the actual values. For more details on this, see my previous post on [plotting residuals](https://drsimonj.svbtle.com/visualising-residuals).
 
 ```{r}
 mtcars %>% 
