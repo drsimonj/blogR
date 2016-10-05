@@ -94,7 +94,7 @@ network_plot(rdf, legend = TRUE, min_cor = .7)
 
 ### fashion()
 
-`fashion()` will now try to work on almost any object (not just correlation data frames). It also provides custom arguments to adjust the number of `decimals`, whether to display `leading_zeros`, and how to print missing values (`na_print`):
+`fashion()` will now try to work on almost any object (not just correlation data frames). It also provides arguments to adjust the number of `decimals`, whether to display `leading_zeros`, and how to print missing values (`na_print`):
 
 ```{r}
 fashion(rdf)
