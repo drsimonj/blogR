@@ -1,0 +1,132 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.height = 3,
+  fig.width = 4,
+  fig.align = "center"
+)
+```
+
+[\@drsimonj](https://twitter.com/drsimonj) here to discuss the latest CRAN release of **corrr** (0.2.1), a package for exploring **corr**elations in a tidy **R** framework. This post will describe corrr features added since version 0.1.0.
+
+You can install or update to this latest version directly from CRAN by running:
+
+```{r eval = FALSE}
+install.packages(corrr)
+```
+
+Let's load corrr into our workspace and create a correlation data frame of the mtcars data set to work with:
+
+```{r, message = F}
+library(corrr)
+rdf <- correlate(mtcars)
+rdf
+```
+
+## Plotting functions
+
+The major changes involve the `rplot()` and new `network_plot()` functions that support the visualisation of your correlations.
+
+### rplot()
+
+`rplot()` produces a shape plot of the correlations. More visible dots correspond to stronger correlations, and blue and red respectively to positive and negative. The default plot looks like this:
+
+```{r rplot1}
+rplot(rdf)
+```
+
+There are now four arguments that allow you to make adjustments to this plot:
+
+- `legend` Boolean indicating whether a legend mapping the colours to the correlations should be displayed.
+- `shape` geom_point aesthetic. A number correspoding to the shape to plot for each point. See <http://sape.inf.usi.ch/quick-reference/ggplot2/shape>
+- `colours` or `colors` Vector of colours to use for n-colour gradient. See <http://sape.inf.usi.ch/quick-reference/ggplot2/colour>
+- `print_cor` Boolean indicating whether the correlations should be printed over the shapes.
+
+Here are some examples that change these values:
+
+```{r rplot-shape, fig.width = 5}
+rplot(rdf, legend = TRUE, shape = 1)
+```
+
+```{r rplot-color, fig.width = 5}
+rplot(rdf, legend = TRUE, colours = c("firebrick1", "black", "darkcyan"))
+```
+
+```{r rplot-print}
+rplot(rdf, print_cor = TRUE)
+```
+
+And don't forget that you can `rearrange()` your correlations first:
+
+```{r rplot-rear, fig.width = 5}
+rdf %>% rearrange(absolute = FALSE) %>% rplot(shape = 0, print_cor = TRUE)
+```
+
+### network_plot()
+
+`network_plot()` produces a network that lays out and connects variables based on the strength of their correlations:
+
+```{r netplot1}
+network_plot(rdf)
+```
+
+For a good intro to `network_plot()`, see my [previous blogR post](https://drsimonj.svbtle.com/correlation-network-plot-with-corrr). There are three arguments that allow you to adjust this plot:
+
+- `min_cor` Number from 0 to 1 indicating the minimum value of correlations (in absolute terms) to plot.
+- `legend` same as `rplot()`
+- `colours` or `colors` same as `rplot()`
+
+Some examples:
+
+```{r netplot-egs}
+network_plot(rdf, legend = TRUE, colours = c("slategrey", "palegreen"))
+
+network_plot(rdf, legend = TRUE, min_cor = .7)
+```
+
+## Other features
+
+### fashion()
+
+`fashion()` will now try to work on almost any object (not just correlation data frames). It also provides custom arguements to adjust the number of `decimals`, whether to display `leading_zeros`, and how to print missing values (`na_print`):
+
+```{r}
+fashion(rdf)
+
+fashion(mtcars) %>% head()
+
+fashion(c(0.340823, NA, -10.000032), decimals = 3, na_print = "MISSING")
+
+fashion(c(0.340823, NA, -10.000032), leading_zeros = TRUE)
+```
+
+### focus()
+
+A standard evaluation version of `focus()` is now available, `focus_()`, to programatically focus on specific correlations:
+
+```{r}
+vars <- c("mpg", "disp")
+focus_(rdf, "hp", .dots = vars)
+```
+
+### Bugs and stuff
+
+Other than these, there have been fixes to various bugs and minor improvements made to existing functions. Please don't forget to [open an issue on GitHub](https://github.com/drsimonj/corrr/issues) or email me if you spot an issue or would like a new feature when using corrr.
+
+## Acknowledgements
+
+Many thanks to the community who have already been using corrr and made suggestions along the way. Your help is invaluable for improving corrr!
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
