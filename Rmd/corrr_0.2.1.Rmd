@@ -31,7 +31,7 @@ rdf
 
 ## Plotting functions
 
-The major changes involve the `rplot()` and new `network_plot()` functions that support the visualisation of your correlations.
+The significant changes involve the `rplot()` and new `network_plot()` functions that support the visualization of your correlations.
 
 ### rplot()
 
@@ -44,7 +44,7 @@ rplot(rdf)
 There are now four arguments that allow you to make adjustments to this plot:
 
 - `legend` Boolean indicating whether a legend mapping the colours to the correlations should be displayed.
-- `shape` geom_point aesthetic. A number correspoding to the shape to plot for each point. See <http://sape.inf.usi.ch/quick-reference/ggplot2/shape>
+- `shape` geom_point aesthetic. A number corresponding to the shape of each point. See <http://sape.inf.usi.ch/quick-reference/ggplot2/shape>
 - `colours` or `colors` Vector of colours to use for n-colour gradient. See <http://sape.inf.usi.ch/quick-reference/ggplot2/colour>
 - `print_cor` Boolean indicating whether the correlations should be printed over the shapes.
 
@@ -76,7 +76,7 @@ rdf %>% rearrange(absolute = FALSE) %>% rplot(shape = 0, print_cor = TRUE)
 network_plot(rdf)
 ```
 
-For a good intro to `network_plot()`, see my [previous blogR post](https://drsimonj.svbtle.com/correlation-network-plot-with-corrr). There are three arguments that allow you to adjust this plot:
+For a good intro to `network_plot()`, see my [previous blogR post](https://drsimonj.svbtle.com/correlation-network-plot-with-corrr). Three arguments allow you to adjust this plot:
 
 - `min_cor` Number from 0 to 1 indicating the minimum value of correlations (in absolute terms) to plot.
 - `legend` same as `rplot()`
@@ -94,7 +94,7 @@ network_plot(rdf, legend = TRUE, min_cor = .7)
 
 ### fashion()
 
-`fashion()` will now try to work on almost any object (not just correlation data frames). It also provides custom arguements to adjust the number of `decimals`, whether to display `leading_zeros`, and how to print missing values (`na_print`):
+`fashion()` will now try to work on almost any object (not just correlation data frames). It also provides custom arguments to adjust the number of `decimals`, whether to display `leading_zeros`, and how to print missing values (`na_print`):
 
 ```{r}
 fashion(rdf)
