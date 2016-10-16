@@ -27,7 +27,7 @@ Before discussing the package, I'd like to express my thanks to [Max Roser](http
   
 ```{r eval = F}
 install.packages("devtools")  # Only needed if you don't have devtools installed
-devtools::install_github("drimonj/ourworldindata")
+devtools::install_github("drsimonj/ourworldindata")
 ```
 
 Once installed, you can load the package and all available data frames with:
