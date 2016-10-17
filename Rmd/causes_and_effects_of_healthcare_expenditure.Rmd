@@ -265,7 +265,7 @@ d %>%
   )
 ```
 
-Clearly, Algeria has a much higher rate of child mortality that Australia or the United states. Instead, let's plot the child mortality rate for each country as the relative change compared to each countrys' own rate in 1995 as a percentage. This means that 0% on the y axis indicates no change from the 1995 rate of child mortality, a positive percent means a higher rate than in 1995, and a negative percent means a lower rate than in 1995.
+Algeria has a much higher rate of, and steeper decline in, child mortality than Australia or the United states. Instead, let's plot the child mortality rate for each country as the relative change compared to each countrys' own rate in 1995 as a percentage. This means that 0% on the y axis indicates no change from the 1995 rate of child mortality, a positive percent means a higher rate than in 1995, and a negative percent means a lower rate than in 1995.
 
 ```{r}
 # Compute `health_exp_change` which is the change from previous year as a
@@ -361,7 +361,7 @@ d %>%
 
 Now that we have countries on a comparable scale, we can investigate whether there are any effects of changing healthcare expenditure.
 
-To do this, we compute the relative change in healthcare expenditure from 1995 to 1996. That is, is 1996, what was the change in healthcare expenditure relative to the 1995 rate for each country?
+To do this, we'll start by computing the relative change in healthcare expenditure from 1995 to 1996. That is, in 1996, what was the change in healthcare expenditure relative to the 1995 spending for each country?
 
 ```{r}
 d <- d %>% mutate(health_exp_increase = health_exp_change > 0)
@@ -377,7 +377,7 @@ d %>%
   theme_post() +
   labs(
     title = "Global range of change in healthcare expenditure in 1996",
-    x = "1996 change in healthcare expenditure from previous year",
+    x = "Healthcare expenditure in 1996 as change from previous year",
     y = "Number of countries"
   )
 ```
@@ -445,7 +445,7 @@ d %>%
   )
 ```
 
-It appears that there is a consistent difference in the future child mortality rates of countries that do or do not increase their healthcare expenditure in a given year. Amazingly, this difference continues to grow up to 10 years into the future.
+It appears that there is a consistent difference in the future child mortality rates of countries that do or do not increase their healthcare expenditure in a given year. Amazingly, this difference continues to grow up to 10 years into the future!
 
 
 ### Child mortality as a cause and effect of healthcare expenditure?
