@@ -10,7 +10,7 @@ knitr::opts_chunk$set(
   warning = FALSE,
   message = FALSE,
   fig.path = "figs/",
-  #fig.height = 3,
+  #fig.height = 3, 
   #fig.width = 6,
   fig.align = "center"
 )
@@ -63,7 +63,7 @@ From the same web page, another powerful Figure is the one below, which shows ho
 
 The relationship is positive this time. That is, higher life expectancy corresponds to higher health expenditure. Furthermore, life expectancy has been increasing over time.
 
-## But we can't yet say that healthcare expenditure causes changes in mortality-related variables
+## But is there a causal link?
 
 A tempting thought after looking at these Figures is that changes in healthcare expenditure are **causing** the changes in child mortality rates and life expectancy over time. This would mean that a country can decrease child mortality or increase life expectancy by increasing their expenditure on healthcare.
 
@@ -73,7 +73,9 @@ If you remain unconvinced, or feel like a laugh, [here's a site with Figures](ht
 
 ## Establishing cause and effect with time
 
-In addition to correlation, establishing a causal relationship involves demonstrating temporal precendence. That is, a cause should always come before an effect in time.
+The aim of this post is to further investigate whether such causal links might exist between healthcare expenditure and these mortality-related variables.
+
+In addition to correlation, establishing a causal relationship involves demonstrating temporal precedence. That is, a cause should always come before an effect in time.
 
 Say we hypothesise that changing healthcare expenditure **causes** changes in child mortality rates or life expectancy. Good evidence of this would be that a change in healthcare expenditure corresponds to **future** changes in child mortality rates or life expectancy. An alternative way to phrase this would be that differences in child mortality and life expectancy correspond to **past** changes in healthcare expenditure. To exagerate the point, we might expect to see something like the following:
 
@@ -95,7 +97,7 @@ ggplot(d, aes(x = year, y = child_mort, group = health_inc, color = health_inc))
     values = c("dodgerblue4", "brown2"),
     name = "Did healthcare expenditure\nincrease at time 0?",
     breaks = c(1, -1),
-    labels = c("Increased", "Decreased")
+    labels = c("Decreased", "Increased")
   ) +
   theme_post() +
   theme(axis.text.x = element_blank(),
@@ -145,13 +147,13 @@ ggplot(d, aes(x = year, y = child_mort, group = health_inc, color = health_inc))
   )
 ```
 
-This Figure hypothesises that while child mortality decreases over time for all countries, the decrease is greater for countries who increased their healthcare expenditure in the past (at time 0).
+This Figure hypothesises that while child mortality decreases over time in general, the decrease is greater if a country increased their healthcare expenditure in the past (at time 0).
 
 The point of these two hypothetical Figures is that, regardless of the specifics, if differences in one variable can be linked to past or future changes in another, this provides evidence in favour of a causal relation.
 
 ## Exploring changes in time
 
-To investigate whether a casual relationship exists betwee healthcare expenditure and mortality-related variables, let's start by examining change over time. From here, we'll be using data available in the new [ourworldindata package for R](https://github.com/drsimonj/ourworldindata), which you can learn more about in a [previous blogR post](https://goo.gl/1EQX94). Complete data is available from 1995 to 2013 for 174 countreis.
+To investigate whether a casual relationship exists betwee healthcare expenditure and mortality-related variables, let's start by examining change over time. From here, we'll be using data available in the new [ourworldindata package for R](https://github.com/drsimonj/ourworldindata), which you can learn more about in a [previous blogR post](https://goo.gl/1EQX94). Complete data is available from 1995 to 2013 for 174 countries.
 
 ```{r data_setup}
 library(tidyverse)
@@ -238,13 +240,13 @@ d %>%
 
 They tell us what we already know: that healthcare expenditure and life expectancy have been increasing over time, and child mortality has been decreasing.
 
-Yet an important thing to note, which is also visible in the OurWorldInData.org Figures, is that there are considerable differences between countries. That is, altought the trends are similar for most countries, they can differ greatly in the overall level of the variable. For example, African nations stand out as having a much higher level of child mortality.
+An obvious but important note, which is also visible in the OurWorldInData.org Figures, is that there are considerable differences between countries. That is, although the trends are similar for most countries, they can differ greatly in the overall level of the variable. For example, as a world region, African nations stand out as having a much higher level of child mortality.
 
-### Percentage change to account for between-country differences
+### Using relative change to account for between-country differences
 
-The problem is that we're not paricularly interested in these differences between countries. Instead, we're interested in the changes that happen over time within a country. For example, if a country increases its healthcare expenditure in 2002, does the child mortality rate decline in future years?
+The problem is that we're not paricularly interested in these differences between countries. Instead, we're interested in the changes that happen over time within a country. For example, if a country increased its healthcare expenditure in 1995, did the child mortality rate decline accordingly in the future?
 
-This problem can be handled using statistical model that nest data within countries, but I'd prefer to keep it simple/interpretable and take a visual approach. So, here, we'll start to talk about the percentage change in healthcare expenditure, child mortality, and life expectancy, from one year to another. To illustrate, the below Figure plots child mortality rates over time for three countries:
+This problem can be handled using statistical models that nest data within countries, but I'd prefer to keep it simple/interpretable and take a visual approach. So, here, we'll start to talk about the within-country percentage change in healthcare expenditure, child mortality, and life expectancy, from one year to another. To illustrate, the below Figure plots child mortality rates over time for three countries:
 
 ```{r}
 d %>% 
@@ -263,7 +265,7 @@ d %>%
   )
 ```
 
-Clearly, Algeria has a much higher rate of child mortality that Australia or the United states. Instead, let's plot the child mortality rate for each country as the percentage change compared to each countrys' own rate in 2002. This means that 0% on the y axis indicates no change from the 2002 child mortality rate (meaning the line for every country will intersect at 0% in 2002), a positive percent means a higher rate than in 2002, and a negative percent means a lower rate than in 2002.
+Clearly, Algeria has a much higher rate of child mortality that Australia or the United states. Instead, let's plot the child mortality rate for each country as the relative change compared to each countrys' own rate in 1995 as a percentage. This means that 0% on the y axis indicates no change from the 1995 rate of child mortality, a positive percent means a higher rate than in 1995, and a negative percent means a lower rate than in 1995.
 
 ```{r}
 # Compute `health_exp_change` which is the change from previous year as a
@@ -305,45 +307,42 @@ d <- map(1:year_span, add_le_lag) %>% reduce(left_join)
 d <- d %>%
   select(-child_mort, -life_expectancy) %>% 
   gather(key, value, contains("child_mort"), contains("life_expectancy")) %>%
-  extract(key, c("var", "comparison_year"), "(child_mort|life_expectancy)_(.*)") %>%
+  extract(key, c("var", "relative_years"), "(child_mort|life_expectancy)_(.*)") %>%
   spread(var, value) %>% 
-  mutate(comparison_year = year + as.numeric(comparison_year))
+  mutate(relative_years = as.numeric(relative_years),
+          comparison_year = year + as.numeric(relative_years))
 
 d %>% 
-  filter(country %in% c("United States", "Australia", "Algeria") & year == 2002) %>% 
+  filter(country %in% c("United States", "Australia", "Algeria") & year == 1995) %>% 
   ggplot(aes(x = comparison_year, y = child_mort, group = country, color = country)) +
-  geom_vline(xintercept = 2002) +
-  geom_hline(yintercept = 0)+
-  annotate("text", x = 2008, y = .1, label = "All values relative to the\n2002 rate of each country") +
-  geom_segment(aes(x = 2004, y = .1, xend = 2002, yend = 0), colour = 'darkorchid2', size = 1, arrow = arrow()) +
+  # annotate("text", x = 2008, y = .1, label = "All values relative to the\n2002 rate of each country") +
+  # geom_segment(aes(x = 2004, y = .1, xend = 2002, yend = 0), colour = 'darkorchid2', size = 1, arrow = arrow()) +
   geom_line() +
   scale_colour_brewer(palette = "Set1") +
   theme_post() +
   scale_x_continuous(expand = c(0,0), breaks = seq(1995, 2013, 2), limits = c(1995, 2013)) +
   scale_y_continuous(expand = c(0,0), labels = scales::percent) +
   labs(
-    title = "Child mortality as percentage change to 2002 rate",
+    title = "Relative change in child mortality over time",
     x = NULL,
-    y = "Change in child mortality from 2002 rate",
+    y = "Change in child mortality relative to 1995",
     color = "Country"
   )
 ```
 
-By converting the child mortality rate for each country to a percentage change from a common year, we can worry less about the huge between-country differences. For example, we can see that all three countries above had a child mortality rate about 10% - 15% higher in 1995 than in 2002, and the trends are all fairly equivalent (though the United States seems to be declining at a slower proportional rate).
+When we use this relative change scale, on which each country is being compared against itself, it becomes easier to ignore absolute differences and to see how the trends compare. For example, it appears that after about 2005, the decline in child mortality within the United States is relatively slow compared to the other two countries.
 
 To round this section off, here's the same Figure but including all countries coloured by their world region:
 
 ```{r}
 sum_d <- d %>% 
-  filter(year == 2002) %>% 
+  filter(year == 1995) %>% 
   group_by(comparison_year, continent) %>% 
   summarise(child_mort = mean(child_mort))
 
 d %>% 
-  filter(year == 2002) %>% 
+  filter(year == 1995) %>% 
   ggplot(aes(x = comparison_year, y = child_mort, color = continent)) +
-  geom_vline(xintercept = 2002) +
-  geom_hline(yintercept = 0) +
   geom_line(aes(group = country), alpha = .1) +
   geom_line(data = sum_d, size = 2, alpha = .5) +
   scale_colour_brewer(palette = "Set1") +
@@ -351,17 +350,107 @@ d %>%
   scale_x_continuous(expand = c(0,0), breaks = seq(1995, 2013, 2), limits = c(1995, 2013)) +
   scale_y_continuous(expand = c(0,0), labels = scales::percent) +
   labs(
-    title = "Child mortality as percentage change to 2002 rate",
+    title = "Relative change in child mortality over time",
     x = NULL,
-    y = "Change in child mortality from 2002 rate",
+    y = "Child mortality as change relative to 1995",
     color = "World Region"
   )
 ```
 
+## Change in healthcare expenditure
 
-## Investigating Change in Healthcare
+Now that we have countries on a comparable scale, we can investigate whether there are any effects of changing healthcare expenditure.
 
-Now that we've got countries on a comparable scale, we can start to investigate the effect of healthcare expenditure. To do this, we'll recolour countries in the above plot by whether they increased their spending on healthcare in 2002 (i.e., compared to 2001, did healthcare expenditure in 2002 go up?). In this Figure, the thick lines represent the average for countries that did or did not increase their healthcare expenditure in 2002.
+To do this, we compute the relative change in healthcare expenditure from 1995 to 1996. That is, is 1996, what was the change in healthcare expenditure relative to the 1995 rate for each country?
+
+```{r}
+d <- d %>% mutate(health_exp_increase = health_exp_change > 0)
+
+d %>% 
+  filter(year == 1996 & relative_years == 0) %>% 
+  ggplot(aes(x = health_exp_change, fill = health_exp_increase)) +
+  geom_histogram(bins = 100) +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette = "Set1") +
+  guides(fill = "none") +
+  theme_post() +
+  labs(
+    title = "Global range of change in healthcare expenditure in 1996",
+    x = "1996 change in healthcare expenditure from previous year",
+    y = "Number of countries"
+  )
+```
+
+While many countries increased their healthcare expenditure in 1996 (represented by the blue regions above), there was a noticeable number of countries that did not (represented by the red regions).
+
+We can now overlay this information into our Figure displaying relative changes in child mortality, but now being relative to 1996 rates.
+
+```{r, fig.width = 8}
+sum_d <- d %>%
+  filter(year == 1996 & comparison_year >= 1996) %>%
+  group_by(health_exp_increase, comparison_year) %>%
+  summarise(
+    health_exp_change = mean(health_exp_change),
+    child_mort = mean(child_mort)
+  )
+
+d %>% 
+  filter(year == 1996 & comparison_year >= 1996) %>% 
+  ggplot(aes(x = comparison_year, y = child_mort, color = health_exp_increase)) +
+  geom_line(aes(group = country), alpha = .2) +
+  geom_line(data = sum_d, alpha = .8, size = 2) +
+  theme_post() +
+  scale_x_continuous(expand = c(0,0), breaks = seq(1996, 2013, 2), limits = c(1996, 2013)) +
+  scale_y_continuous(expand = c(0,0), labels = scales::percent) +
+  scale_color_manual(
+    values = c("brown2", "dodgerblue4"),
+    breaks = c(TRUE, FALSE),
+    labels = c("Yes", "No")
+  ) +
+  labs(
+    title = "Child mortality as relative change over time",
+    x = NULL,
+    y = "Child mortality as change relative to 1996",
+    color = "Was healthcare expenditure\nincreased in 1996?"
+  )
+```
+
+An on average gap in child mortality opens between those countries that increased their spending on healthcare in 1996 and those that did not. From this Figure, we can see that future child mortality is lower for countries that increased their healthcare expenditure, and this difference is largest after around 10 years (in 2006).
+
+Now, imagine doing the same comparison as above for every year from 1996 to 2003, looking ahead 10 years in each case. The below Figure shows the averaged results of these comparisons, treating the reference year as year 0.
+
+```{r, fig.width = 8}
+d %>%
+  filter(between(year, 1996, 2003) & between(relative_years, 0, 10)) %>% 
+  group_by(relative_years, health_exp_increase) %>% 
+  summarise(
+    child_mort = mean(child_mort, na.rm = TRUE)
+  ) %>% 
+  ggplot(aes(x = relative_years, y = child_mort, color = health_exp_increase)) +
+  geom_line(size = 2) +
+  theme_post() +
+  scale_x_continuous(expand = c(0,0), breaks = seq(0, 10, 2), limits = c(0, 10)) +
+  scale_y_continuous(expand = c(0,0), labels = scales::percent) +
+  scale_color_manual(
+    values = c("brown2", "dodgerblue4"),
+    breaks = c(TRUE, FALSE),
+    labels = c("Yes", "No")
+  ) +
+  labs(
+    title = "Child mortality as relative change over time",
+    x = "Years in the future",
+    y = "Child mortality as change relative to year 0",
+    color = "Was healthcare expenditure\nincreased in year 0?"
+  )
+```
+
+It appears that there is a consistent difference in the future child mortality rates of countries that do or do not increase their healthcare expenditure in a given year. Amazingly, this difference continues to grow up to 10 years into the future.
+
+
+### Child mortality as a cause and effect of healthcare expenditure?
+
+Now that we've got countries on a comparable scale, we can start to investigate the effect of healthcare expenditure on child mortality. To do this, we'll recolour countries in the above plot by whether they increased their spending on healthcare in 2002 (i.e., compared to 2001, did healthcare expenditure in 2002 go up?). In this Figure, the thick lines represent the average for countries that did or did not increase their healthcare expenditure in 2002.
 
 ```{r, fig.width = 8.5, fig.height = 5}
 d <- d %>% mutate(health_exp_increase = health_exp_change > 0)
@@ -394,7 +483,77 @@ d %>%
   )
 ```
 
-This looks similar to our hypothesised outcome if healthcare expenditure affected child mortality. Globally, child mortality rates declined after 2002. However, after 2002, there was agreater decline in child mortality for countries that increased their spending on health rather than countries that made no changes or decreasedtheir spending.
+This looks similar to our hypothesised outcome if healthcare expenditure affected child mortality. Globally, child mortality rates declined after 2002. However, after 2002, there was a greater decline in child mortality for countries that increased their spending on health rather than countries that made no changes or decreased their spending.
+
+Interestingly, we see the reverse pattern in the years prior to 2002. Countries that increased their health spending in 2002 had proportionally higher rates of child mortality in the preceeding years that countries that did not. This might be explained by the 'reactionary' style of decision making. On average, countries, on average, were more likley to increase their healthcare expenditure after discovering that their child mortality rates were proportionally high.
+
+Let's further investigate this by visualising the average lines (thick lines) for countries that did or did not increase healthcare spending in every year available in the data:
+
+```{r, fig.height=7, fig.width=10}
+sum_d <- d %>% 
+  filter(!is.na(health_exp_increase)) %>% 
+  group_by(year, comparison_year, health_exp_increase) %>% 
+  summarise(child_mort = mean(child_mort))
+
+sum_d %>% 
+  ggplot(aes(x = comparison_year, y = child_mort, color = health_exp_increase)) +
+  #geom_vline(xintercept = 2002) +
+  geom_hline(yintercept = 0) +
+  geom_line() +
+  theme_post() +
+  scale_x_continuous(expand = c(0,0), breaks = c(1995, 2004, 2013), limits = c(1995, 2013)) +
+  scale_y_continuous(expand = c(0,0), labels = scales::percent) +
+  labs(
+    title = "Changes in child mortality relative to a given year",
+    x = NULL,
+    y = "Change in child mortality from given year",
+    color = NULL
+  ) +
+  scale_color_manual(
+    values = c("brown2", "dodgerblue4"),
+    breaks = c(TRUE, FALSE),
+    labels = c("Increased healthcare\nexpenditure in given year", "No change or decreased\nexpenditure in given year")
+  ) +
+  facet_wrap(~ year, scale = "free")
+
+```
+
+Looking over the years, it seems like there tends to be a positive effect of increasing healthcare expenditure on child mortality. The notion that child mortality causes changes in healthcare spending, however, is less clear.
+
+As a final perspective, we'll average these values across all years into a single Figure:
+
+```{r}
+d %>%
+  filter(!is.na(health_exp_increase)) %>% 
+  mutate(comparison_year = comparison_year - year) %>%
+  group_by(comparison_year, health_exp_increase) %>% 
+  summarise(
+    child_mort = mean(child_mort, na.rm = TRUE)
+  ) %>% 
+  ggplot(aes(x = comparison_year, y = child_mort, color = health_exp_increase)) +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  geom_line() +
+  theme_post() +
+  scale_x_continuous(expand = c(0,0), breaks = seq(-18, 18, 2), limits = c(-18, 18)) +
+  scale_y_continuous(expand = c(0,0), labels = scales::percent) +
+  labs(
+    title = "Average changes in child mortality relative to a given year",
+    x = "Number of years relative to given year",
+    y = "Change in child mortality as percent from rate in given year",
+    color = NULL
+  ) +
+  scale_color_manual(
+    values = c("brown2", "dodgerblue4"),
+    breaks = c(TRUE, FALSE),
+    labels = c("Increased healthcare\nexpenditure in given year", "No change or decreased\nexpenditure in given year")
+  )
+```
+
+
+
+
+
 
 Let's do the same graph but examining life expectancy in terms of change from life expectancy in 2002:
 
@@ -426,6 +585,8 @@ d %>%
     labels = c("Increased healthcare\nexpenditure in 2002", "No change or decreased\nexpenditure in 2002")
   )
 ```
+
+The result of this Figure is counterintuitive, but we'll address this in more detail shortly after looking at a comparison against all other years.
 
 ## Mortality as a cause and effect of healthcare expenditure?
 
