@@ -73,21 +73,14 @@ library(tidyverse)
 
 # Generate data
 d <- tibble(
-  health_inc = rep(c(-.7, -1), each = 3),
-  year = rep(c(0:2), 2)
+  year = rep(c(0:2), 2),
+  child_mort = year * rep(c(-.7, -1), each = 3),
+  health_inc = rep(c("No", "Yes"), each = 3)
 )
-d <- d %>% mutate(child_mort = year * health_inc / 5,
-                  year = factor(year),
-                  health_inc = factor(health_inc))
 
-ggplot(d, aes(x = year, y = child_mort, group = health_inc, color = health_inc)) +
-  geom_line() +
-  scale_color_manual(
-    values = c("dodgerblue4", "brown2"),
-    name = "Did healthcare expenditure\nincrease at time 0?",
-    breaks = c(-1, -.7),
-    labels = c("Yes", "No")
-  ) +
+ggplot(d, aes(x = year, y = child_mort, color = health_inc)) +
+  geom_line(size = 2) +
+  scale_color_brewer(palette = "Set1") +
   theme_post() +
   theme(axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
@@ -97,25 +90,326 @@ ggplot(d, aes(x = year, y = child_mort, group = health_inc, color = health_inc))
   labs(
     x = expression(paste(symbol('\256'), " Time ", symbol('\256'))),
     y = expression(paste(symbol('\256'), " Child Mortality Rate ", symbol('\256'))),
-    title = "Hypothesised change in\nchild mortality over time"
+    title = "Hypothesised change in\nchild mortality over time",
+    color = "Increased healthcare\nexpenditure in year 0?"
   )
+
 ```
 
 Let's begin to examine whether there is evidence of this sort of temporal relationship between changes in healthcare expenditure and child mortality rates around the globe.
 
 ## R code and the ourworldindata package
 
-From here, we'll be using data available in the new [ourworldindata package for R](https://github.com/drsimonj/ourworldindata), which you can learn more about in a [previous blogR post](https://goo.gl/1EQX94). Complete data is available from 1995 to 2013 for 174 countries.
+```{r data-prep}
+library(tidyverse)
+library(ourworldindata)
+library(forcats)
+library(stringr)
+library(RColorBrewer)
+library(riverplot)
+library(scales)
 
-Also, for those who are interested, the complete R code used in this post is available via my [blogR GitHub repository]().
+# Select data and group by country
+d <- financing_healthcare %>%
+  select(year:continent, health_exp_total, child_mort, life_expectancy) %>% 
+  drop_na() %>% 
+  group_by(country)
+
+# There are a few countries that don't start in 1995, but all end in 2013
+# So remove these few countries that don't have data back to 1995:
+d <- d %>% filter(first(year) == 1995)
+
+# There are also a few countries that don't have complete data for all years, so
+# remove these.
+d <- d %>% mutate(n = n()) %>% filter(n == 19) %>% select(-n)
+
+# Compute `health_exp_change` which is the change from previous year as a
+# proportion of previous year's spending. 0 means no change. positive means
+# increase, negative means decrease. `health_exp_increase` is boolean version
+# indicating whether it's > 0.
+d <- d %>% mutate(health_exp_change = (health_exp_total - lag(health_exp_total)) / lag(health_exp_total),
+                  health_exp_increase = health_exp_change > 0)
+
+# Compute every year-to-year comparison for `child_mort` and `life_expectancy`. 
+# That is, for every year, what is the change from it to every other year as a
+# proportion of that given year's value.
+add_cm_lead <- function(lead_by) {
+  d %>% mutate_(.dots = setNames(list(~ (lead(child_mort, lead_by) - child_mort) / child_mort),  paste0("child_mort_", lead_by)))
+}
+
+add_cm_lag <- function(lag_by) {
+  d %>% mutate_(.dots = setNames(list(~ (lag(child_mort, lag_by) - child_mort) / child_mort),  paste0("child_mort_-", lag_by)))
+}
+
+add_le_lead <- function(lead_by) {
+  d %>% mutate_(.dots = setNames(list(~ (lead(life_expectancy, lead_by) - life_expectancy) / life_expectancy),  paste0("life_expectancy_", lead_by)))
+}
+
+add_le_lag <- function(lag_by) {
+  d %>% mutate_(.dots = setNames(list(~ (lag(life_expectancy, lag_by) - life_expectancy) / life_expectancy),  paste0("life_expectancy_-", lag_by)))
+}
+
+year_span <- max(summarise(d, year_span = max(year) - min(year))$year_span)
+
+# Add child mortality comparison to future years
+d <- map(0:year_span, add_cm_lead) %>% reduce(left_join)
+# Add child mortality comparison to past years
+d <- map(1:year_span, add_cm_lag) %>% reduce(left_join)
+# Add life expectancy comparison to future years
+d <- map(0:year_span, add_le_lead) %>% reduce(left_join)
+# Add life expectancy comparison to past years
+d <- map(1:year_span, add_le_lag) %>% reduce(left_join)
+
+# Tidy
+d <- d %>%
+  select(-child_mort, -life_expectancy) %>% 
+  gather(key, value, contains("child_mort"), contains("life_expectancy")) %>%
+  extract(key, c("var", "relative_years"), "(child_mort|life_expectancy)_(.*)") %>%
+  spread(var, value) %>% 
+  mutate(relative_years = as.numeric(relative_years),
+          comparison_year = year + as.numeric(relative_years))
+```
+
+From here, we'll be using data available in the new [ourworldindata package for R](https://github.com/drsimonj/ourworldindata), which you can learn more about in a [previous blogR post](https://goo.gl/1EQX94). Complete data is available from 1995 to 2013 for `r length(unique(d$country))` countries.
+
+Also, for those who are interested, the complete R code used in this post is available via my [blogR GitHub repository](https://github.com/drsimonj/blogR/blob/master/Rmd/causes_and_effects_of_healthcare_expenditure.Rmd).
 
 ## Changes in healthcare expenditure
 
-From the earlier Figure, global spending on healthcare has mostly increased from 1995 to 2014. However, The Figure ignores year-to-year fluctuations that are relevant to our focus here. 
+To commence our investigation, we need to make sure that there are actually occassions in which countries change their healthcare expenditure to various degrees. From the earlier Figure, global spending on healthcare has generally increased from 1995 to 2014. However, The Figure ignores year-to-year fluctuations that are relevant to our focus. Let's start by examining how much spending on health for each country changed in 1996. Instead of examining the change in absolute numbers of dollars (which varies greatly between countries), we'll consider each countries' change in 1996 as a percentage of their own 1995 expenditure, making comparisons easier. For example, the Figure below shows the countries with the most extreme changes in their healthcare expenditure relative to their spending in 1995.
 
+```{r}
+d %>% 
+  ungroup() %>% 
+  filter(year == 1996 & relative_years == 0) %>% 
+  arrange(health_exp_change) %>%
+  mutate(country = fct_inorder(country)) %>% 
+  filter(!between(health_exp_change, quantile(health_exp_change, .05), quantile(health_exp_change, .95))) %>% 
+  ggplot(aes(x = country, y = health_exp_change, fill = health_exp_increase)) +
+    geom_bar(stat = "identity") +
+    scale_fill_brewer(palette = "Set1") +
+    scale_y_continuous(breaks = seq(-.2, 1, by = .2), labels = scales::percent) +
+    coord_flip() +
+    guides(fill = "none") +
+    theme_post() +
+    labs(
+      title = "Countries with most extreme changes\nin healthcare expenditure in 1996",
+      y = "1996 change in healthcare expenditure as percent of spending in previous year",
+      x = NULL
+    )
+```
 
+We can see that Bosnia and Herzegovina increased their healthcare expenditure by more than 100%! That is, they more than doubled their spending on health from the previous year. Compare this to Angola who decreased their spending by over 20%.
 
+The Figure below shows the distribution of relative changes made to healthcare expenditure in 1996 by all countries.
 
+```{r}
+d %>% 
+  filter(year == 1996 & relative_years == 0) %>% 
+  ggplot(aes(x = health_exp_change, fill = health_exp_increase)) +
+  geom_histogram(bins = 100) +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette = "Set1") +
+  guides(fill = "none") +
+  theme_post() +
+  labs(
+    title = "Global range of change in healthcare expenditure in 1996",
+    x = "1996 change in healthcare expenditure as percent of spending in previous year",
+    y = "Number of countries"
+  )
+```
+
+We can see that, in 1996, most countries increased their healthcare expenditure relative to the previousy year (1995), with the overall average being an increase of `r round(mean(filter(d, year == 1996 & relative_years == 0)$health_exp_change)*100, 2)`%. Still, a noticeable propotion of countries made no change or even decreased their spending.
+
+The Figure below shows the numbers of countries that increased or decreased their spending on healthcare each year.
+
+```{r, fig.width = 8}
+pd <- d %>% 
+  filter(year > 1995 & relative_years == 0) %>% 
+  group_by(year, health_exp_increase) %>% 
+  summarise(n = n())
+
+pd %>%
+  ggplot(aes(x = year, y = n, fill = health_exp_increase)) +
+    geom_bar(stat = "identity") +
+    scale_x_continuous(expand = c(0,0), breaks = 1996:2013) +
+    scale_y_continuous(expand = c(0,0)) +
+    theme_post() +
+    scale_fill_manual(
+      values = brewer.pal(3, "Set1"),
+      breaks = c(TRUE, FALSE),
+      labels = c("Yes", "No")
+    ) +
+    labs(
+      title = NULL,
+      y = "Number of countries",
+      x = NULL,
+      fill = "Increased healthcare\nexpenditure?"
+    )
+```
+
+Each year, an average of `r round(mean(filter(pd, !health_exp_increase)$n))` countries made no change or decreased their spending on healthcare. 
+
+One thing to check is that it's not always the same countries in each category. Therefore, the Figure below represents the same numbers while also showing the annual flow of countries between categories:
+
+```{r}
+pd <- d %>% 
+  filter(relative_years == 0) %>% 
+  select(year, country, health_exp_increase) %>% 
+  group_by(country) %>% 
+  mutate(health_exp_switch = health_exp_increase != lag(health_exp_increase)) %>% 
+  drop_na() %>% 
+  group_by(year) %>% 
+  summarise(
+    inc_inc = mean(health_exp_increase & !health_exp_switch),
+    dec_dec = mean(!health_exp_increase & !health_exp_switch),
+    dec_inc = mean(health_exp_increase & health_exp_switch),
+    inc_dec = mean(!health_exp_increase & health_exp_switch)
+  ) %>% 
+  gather(key, value, -year) %>% 
+  separate(key, into = c("past", "present")) %>% 
+  mutate(past = str_c(year - 1, past, sep = "_"),
+         present = str_c(year, present, sep = "_")) %>% 
+  select(-year) %>% 
+  rename(N1 = past, N2 = present, Value = value)
+
+nodes <- data.frame(ID = unique(c(pd$N1, pd$N2))) %>%
+  mutate(
+    x = as.integer(str_extract(ID, "[0-9]*")),
+    labels = ifelse(str_detect(ID, "inc"), x, "")
+  )
+
+palette <- brewer.pal(2, "Set1")
+styles <- by_row(nodes, ~ list(col = palette[1 + str_detect(.$ID, "inc")], lty = 1))$.out
+names(styles) <- nodes$ID
+
+rp <- list(nodes = nodes, edges = pd, styles = styles)
+class(rp) <- c(class(rp), "riverplot")
+plot(rp, srt = 90, lty = 1)
+```
+
+Each year, it appears that there are a number of countries that transition from increasing their healthcare expenditure to decreasing it, and vice versa.
+
+```{r}
+no_switch <- d %>% 
+  mutate(health_exp_switch = any(health_exp_increase != lag(health_exp_increase), na.rm = TRUE)) %>%
+  filter(!health_exp_switch)
+
+no_switch <- unique(no_switch$country)
+```
+
+In fact, there are only `r length(no_switch)` countries that increased their healthcare expenditure every year from 1995 to 2013. The absolute spending trajectories of these countries are shown below:
+
+```{r}
+financing_healthcare %>% 
+  filter(country %in% no_switch & between(year, 1995, 2013)) %>% 
+  ggplot(aes(x = year, y = health_exp_total, color = country)) +
+    geom_line() +
+    scale_y_continuous(expand = c(0,0), labels = scales::dollar) +
+    scale_x_continuous(expand = c(0,0), breaks = seq(1995, 2013, 2)) +
+    theme_post() +
+    labs(
+      title = "Healthcare expenditure of countries\nthat consistently increased spending",
+      y = "Healthcare Expenditure",
+      x = NULL,
+      color = NULL
+    )
+```
+
+We now know that many countries have great fluctations in the changes to healthcare spending from year to year, meaning we have sufficient data to examine the question of temporal precendence.
+
+## Investigating the effects of changing healthcare expenditure
+
+To investigate temporal precedence, we'll overlay information about changes in healthcare expenditure onto Figures about relative changes in child mortality over time. We'll start by examining changes in countries' child mortality rates relative to their own rate in 1996. In the Figure below, thin lines represent countries, and the thick bands represent world region averages.
+
+```{r}
+sum_d <- d %>% 
+  filter(year == 1996) %>% 
+  group_by(comparison_year, continent) %>% 
+  summarise(child_mort = mean(child_mort))
+
+d %>% 
+  filter(year == 1996) %>% 
+  ggplot(aes(x = comparison_year, y = child_mort, color = continent)) +
+  geom_line(aes(group = country), alpha = .1) +
+  geom_line(data = sum_d, size = 2, alpha = .5) +
+  scale_colour_brewer(palette = "Set1") +
+  theme_post() +
+  scale_x_continuous(expand = c(0,0), breaks = seq(1996, 2013, 2), limits = c(1996, 2013)) +
+  scale_y_continuous(expand = c(0,0), labels = scales::percent) +
+  labs(
+    title = "Relative change in child mortality over time",
+    x = NULL,
+    y = "Child mortality as change relative to 1996",
+    color = "World Region"
+  )
+```
+
+Like the earlier Figures show, child mortality is generally declining over time, though there are considerable fluctations between countries.
+
+What happens if we overlay information about healthcare expenditure changes in 1996 instead of world region information?
+
+```{r, fig.width = 8}
+sum_d <- d %>%
+  filter(year == 1996 & comparison_year >= 1996) %>%
+  group_by(health_exp_increase, comparison_year) %>%
+  summarise(
+    health_exp_change = mean(health_exp_change),
+    child_mort = mean(child_mort)
+  )
+
+d %>% 
+  filter(year == 1996 & comparison_year >= 1996) %>% 
+  ggplot(aes(x = comparison_year, y = child_mort, color = health_exp_increase)) +
+  geom_line(aes(group = country), alpha = .2) +
+  geom_line(data = sum_d, alpha = .8, size = 2) +
+  theme_post() +
+  scale_x_continuous(expand = c(0,0), breaks = seq(1996, 2013, 2), limits = c(1996, 2013)) +
+  scale_y_continuous(expand = c(0,0), labels = scales::percent) +
+  scale_color_manual(
+    values = RColorBrewer::brewer.pal(3, "Set1"),
+    breaks = c(TRUE, FALSE),
+    labels = c("Yes", "No")
+  ) +
+  labs(
+    title = "Child mortality as relative change over time",
+    x = NULL,
+    y = "Child mortality as change relative to 1996",
+    color = "Increased healthcare\nexpenditure in 1996?"
+  )
+```
+
+An on average gap in child mortality opens between those countries that increased their spending on healthcare in 1996 and those that did not. From this Figure, we can see that future child mortality is lower for countries that increased their healthcare expenditure, and this difference is largest after around 10 years (in 2006).
+
+Now, imagine doing the same comparison as above for every year from 1996 to 2003, looking ahead 10 years in each case. The below Figure shows the averaged results of these comparisons, treating the reference year as year 0.
+
+```{r, fig.width = 8}
+d %>%
+  filter(between(year, 1996, 2003) & between(relative_years, 0, 10)) %>% 
+  group_by(relative_years, health_exp_increase) %>% 
+  summarise(
+    child_mort = mean(child_mort, na.rm = TRUE)
+  ) %>% 
+  ggplot(aes(x = relative_years, y = child_mort, color = health_exp_increase)) +
+  geom_line(size = 2) +
+  theme_post() +
+  scale_x_continuous(expand = c(0,0), breaks = seq(0, 10, 2), limits = c(0, 10)) +
+  scale_y_continuous(expand = c(0,0), labels = scales::percent) +
+  scale_color_manual(
+    values = RColorBrewer::brewer.pal(3, "Set1"),
+    breaks = c(TRUE, FALSE),
+    labels = c("Yes", "No")
+  ) +
+  labs(
+    title = "Child mortality as relative change over time",
+    x = "Years in the future",
+    y = "Child mortality as change relative to year 0",
+    color = "Increased healthcare\nexpenditure in year 0?"
+  )
+```
+
+It appears that there is a consistent difference in the future child mortality rates of countries that do or do not increase their healthcare expenditure in a given year. Amazingly, this difference continues to grow up to 10 years into the future!
 
 
 
