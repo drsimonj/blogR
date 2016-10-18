@@ -199,7 +199,7 @@ d %>%
     )
 ```
 
-We can see that Bosnia and Herzegovina increased their healthcare expenditure by more than 100%! That is, they more than doubled their spending on health from the previous year. Compare this to Angola who decreased their spending by over 20%.
+We can see that Bosnia and Herzegovina increased their healthcare expenditure by more than 100%! That is, they more than doubled their spending on health from the previous year. Compare this to Angola, which decreased spending by over 20%.
 
 The Figure below shows the distribution of relative changes made to healthcare expenditure in 1996 by all countries.
 
@@ -222,9 +222,9 @@ d %>%
 
 We can see that, in 1996, most countries increased their healthcare expenditure relative to the previousy year (1995), with the overall average being an increase of `r round(mean(filter(d, year == 1996 & relative_years == 0)$health_exp_change)*100, 2)`%. Still, a noticeable propotion of countries made no change or even decreased their spending.
 
-The Figure below shows the numbers of countries that increased or decreased their spending on healthcare each year.
+When we reduce this to an increase or not, the Figure below shows the numbers of countries that increased or decreased their spending on healthcare each year.
 
-```{r, fig.width = 8}
+```{r, fig.width = 9}
 pd <- d %>% 
   filter(year > 1995 & relative_years == 0) %>% 
   group_by(year, health_exp_increase) %>% 
@@ -346,9 +346,9 @@ d %>%
   )
 ```
 
-Like the earlier Figures show, child mortality is generally declining over time, though there are considerable fluctations between countries.
+Like the earlier Figures showed, child mortality has been generally declining over time, though there are considerable fluctations within and between countries.
 
-What happens if we overlay information about healthcare expenditure changes in 1996 instead of world region information? This time, the thick bands represent the average for countries that did, or did not, increase their spending on health in 1996.
+What happens if we overlay information about healthcare expenditure changes in 1996 instead of world region information? This time, the thick bands represent averages for countries that did, or did not, increase their spending on health in 1996.
 
 ```{r, fig.width = 8}
 sum_d <- d %>%
@@ -380,9 +380,9 @@ d %>%
   )
 ```
 
-This Figure starts to looks like our hypothesised results from earlier. A gap in child mortality opens between those countries that increased their spending on healthcare in 1996 and those that did not. This indicates that future child mortality is lower for countries that increased their healthcare expenditure, and this difference is largest after around 10 years (in 2006).
+This Figure looks a bit like our hypothesised results. A gap in child mortality opens between those countries that increased their spending on healthcare in 1996 and those that did not. This indicates that future child mortality is lower for countries that increased their healthcare expenditure, and this difference is largest after around 10 years (in 2006).
 
-Now, imagine doing the same comparison as above for every year from 1996 to 2003, looking ahead 10 years in each case. The below Figure shows the averaged results of these comparisons, treating the reference year as year 0.
+Now, imagine doing the same comparison as above for every year from 1996 to 2003, looking ahead 10 years in each case. The below Figure shows the averaged results of these comparisons, treating the starting year as year 0.
 
 ```{r, fig.width = 8}
 d %>%
@@ -409,11 +409,13 @@ d %>%
   )
 ```
 
-There seems to be a consistent difference in the future child mortality rates of countries that do or do not increase their healthcare expenditure in a given year. Furthermore, this difference continues to grow up to 10 years into the future! This provides evidence of temporal precendece and, therefore, further indicates that changes in healthcare expenditure cause or lead to changes in child mortality rates. It seems intuitive, but this provides empirical evidence to support Mr Gates' claim that, indeed, investing in healthcare can help to reduce child mortality rates and is certainly worthwhile!
+There seems to be a consistent difference in the future child mortality rates of countries that do or do not increase their healthcare expenditure in a given year. Furthermore, this difference continues to grow up to 10 years into the future!
+
+This provides evidence of temporal precendece and, therefore, further indicates that changes in healthcare expenditure cause or lead to changes in child mortality rates. It seems intuitive, but this provides empirical evidence to support Mr Gates' claim that investing in healthcare truly can help to reduce child mortality rates!
 
 ## Final remarks and limitations
 
-At the beginning I mentioned that this post is to be treated as an exercise in R and the new ourworldindata package. I'd like to mention this point again. The work produced here has not been peer-reviewed, nor have the analyses been replicated or validated by others. Therefore, for any readers who are particularly concerned with the subject-matter of this post, I'd ask that you consider doing independent work before jumping to conclusions. Similarly, if you have any idea to add here, or relevant work to reference, please contact me.
+A reminder that the work produced here has not been peer-reviewed, nor have the analyses been replicated or validated by others. For any readers who are particularly concerned with the subject-matter of this post, I'd ask that you do independent work before jumping to conclusions. Similarly, if you have any idea to add here, or relevant work to reference, please contact me.
 
 ## Sign off
 
