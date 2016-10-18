@@ -172,7 +172,7 @@ d <- d %>%
 
 From here, we'll be using data available in the new [ourworldindata package for R](https://github.com/drsimonj/ourworldindata), which you can learn more about in a [previous blogR post](https://goo.gl/1EQX94). Complete data is available from 1995 to 2013 for `r length(unique(d$country))` countries.
 
-Also, for those who are interested, the complete R code used in this post is available via my [blogR GitHub repository](https://github.com/drsimonj/blogR/blob/master/Rmd/causes_and_effects_of_healthcare_expenditure.Rmd).
+Also, for those who are interested, the complete R code used in this post is available via my [blogR GitHub repository](https://github.com/drsimonj/blogR/blob/master/Rmd/healthcare_investment_and_child_mortality.Rmd).
 
 ## Changes in healthcare expenditure
 
