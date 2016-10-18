@@ -50,23 +50,23 @@ theme_post <- function(base_size = 11, base_family = "") {
 
 ## Healthcare expenditure correlates with child mortality
 
-This post was inspired by the Figure below which appears on [this OurWorldInData.org page](https://ourworldindata.org/financing-healthcare/#correlates-determinants-consequences).
+This post was inspired by the Figure below which appears on [this OurWorldInData.org page](https://ourworldindata.org/financing-healthcare/#correlates-determinants-consequences), managed by [Max Roser](https://twitter.com/MaxCRoser) and his team.
 
 <center><image src="https://ourworldindata.org/wp-content/uploads/2016/04/health-exp-vs-u5mr-with-labels-1.png" /></center>
 
-The Figure, which was brought to my attention by [this Tweet by Bill Gates](https://twitter.com/BillGates/status/763412096382009346), shows that global child mortality rates (number of children per 1000 dying before the age of 5) and total expenditure on healthcare are negatively correlated. The lower one of these is, the higher the other. The Figure additionally shows that, over time (from 1995 to 2014), child mortality rates have been declining while healthcare expenditure has been increasing.
+The Figure, which was brought to my attention by [this Tweet by Bill Gates](https://twitter.com/BillGates/status/763412096382009346), shows that global child mortality rates (number of children per 1000 dying before the age of 5) and total expenditure on healthcare are negatively correlated. The lower one of these is, the higher the other. The Figure additionally shows that over time (from 1995 to 2014) child mortality rates have been declining while healthcare expenditure has been increasing.
 
 ## But is there a causal link?
 
-Other than being a powerful data vizualisation, what caught my attention was that Mr Gates said, "Here's a great investment". To me, this implies that by investing in healthcare, we can hope to reduce child mortality rates.
+Other than being an awesome data visualization, what caught my attention was that Mr. Gates said, "Here's a great investment." To me, this implies that by investing in healthcare, we can hope to reduce child mortality rates.
 
-This is a tempting thought -- that changes in healthcare expenditure are **causing** some of the changes in child mortality rates, most likley through indirect means such as providing more funds to hire hospital staff. However, the OurWorldInData.org team don't claim this. Instead, they refer to child mortality as a "correlate" of healthcare expenditure. Why? Because any good scientist or statistician will remind you that "correlation does not imply causation". If you're not familiar with this concept, or feel like a laugh, [this site](https://www.fastcodesign.com/3030529/infographic-of-the-day/hilarious-graphs-prove-that-correlation-isnt-causation/5) provides some nice examples of variables that correlate but don't cause one another. Still, correlation is an important indicator of a causal relation.
+This is a tempting thought -- that changes in healthcare expenditure are **causing** some of the changes in child mortality rates, most likely through indirect means such as providing more funds to hire hospital staff. However, the OurWorldInData.org team don't claim this. Instead, they refer to child mortality as a "correlate" of healthcare expenditure. Why? Because any good scientist or statistician will remind you that "correlation does not imply causation." If you're not familiar with this concept or feel like a laugh, [this site](https://www.fastcodesign.com/3030529/infographic-of-the-day/hilarious-graphs-prove-that-correlation-isnt-causation/5) provides some amusing examples of variables that correlate but don't cause one another. Still, correlation is an important indicator of a causal relation.
 
 ## Temporal precedence as an indicator of causality
 
-The aim of this post is to provide some empirical support for Mr Gates' comment and investigate whether there is evidence of a second indicator of causality: temporal precendence. A cause should always come before an effect in time. Therefore, should a causal link exist, past changes in healthcare expenditure should correspond to future changes in child mortality rates.
+The aim of this post is to provide some empirical support for Mr. Gates' comment and investigate whether there is evidence of the second indicator of causality: temporal precedence. A cause should always come before an effect in time. Therefore, should a causal link exist, past changes in healthcare expenditure should correspond to future changes in child mortality rates.
 
-Imagine, for example, two countries that are identical in every way. One year (we'll call this year 0), one country increases the amount it is spending on healthcare, but the other country does not. What would we expect to see? If there's a causal link, then we should expect that the rates of child mortality will, over time, become lower in the country that increased its spending. This hypothesis can be visualised below.
+Imagine, for example, two countries that are identical in every way. One year (we'll call this year 0), one country increases the amount it is spending on healthcare, but the other country does not. What would we expect to see? If there's a causal link, then we should expect that the rates of child mortality will, over time, become lower in the country that increased its spending. This hypothesis can be visualized below.
 
 ```{r}
 library(tidyverse)
@@ -176,7 +176,7 @@ Also, for those who are interested, the complete R code used in this post is ava
 
 ## Changes in healthcare expenditure
 
-To commence our investigation, we need to make sure that countries change their healthcare expenditure to various degrees. From the earlier Figure, global spending on healthcare has generally increased from 1995 to 2014. However, The Figure ignores year-to-year fluctuations that are relevant to our focus. Let's start by examining how much spending on health for each country changed in 1996. Instead of examining the change in absolute numbers of dollars (which varies greatly between countries), we'll consider each countries' change in 1996 as a percentage of their own 1995 expenditure, making comparisons easier. For example, the Figure below shows the countries with the most extreme changes in their healthcare expenditure relative to their spending in 1995.
+To commence our investigation, we need to make sure that countries change their healthcare spending to various degrees. From the earlier Figure, global spending on healthcare has increased from 1995 to 2014. However, The Figure ignores year-to-year fluctuations that are relevant to our focus. Let's start by examining how much spending on health for each country changed in 1996. Instead of considering the change in absolute numbers of dollars (which varies considerably between countries), we'll consider each countries' change in 1996 as a percentage of their 1995 expenditure, making comparisons easier. For example, the Figure below shows the countries with the most extreme changes in their healthcare expenditure relative to their spending in 1995.
 
 ```{r}
 d %>% 
@@ -199,7 +199,7 @@ d %>%
     )
 ```
 
-We can see that Bosnia and Herzegovina increased their healthcare expenditure by more than 100%! That is, they more than doubled their spending on health from the previous year. Compare this to Angola, which decreased spending by over 20%.
+We can see that Bosnia and Herzegovina increased their healthcare spending by more than 100%! That is, they more than doubled their spending on health from the previous year. Compare this to Angola, which decreased spending by over 20%.
 
 The Figure below shows the distribution of relative changes made to healthcare expenditure in 1996 by all countries.
 
@@ -215,14 +215,14 @@ d %>%
   theme_post() +
   labs(
     title = "Global range of change in healthcare expenditure in 1996",
-    x = "1996 change in healthcare expenditure as percent of spending in previous year",
+    x = "1996 change in healthcare expenditure as a percent of spending in the previous year",
     y = "Number of countries"
   )
 ```
 
-We can see that, in 1996, most countries increased their healthcare expenditure relative to the previousy year (1995), with the overall average being an increase of `r round(mean(filter(d, year == 1996 & relative_years == 0)$health_exp_change)*100, 2)`%. Still, a noticeable propotion of countries made no change or even decreased their spending.
+We can see that, in 1996, most countries increased their healthcare expenditure relative to the previous year (1995), with the overall average being an increase of `r round(mean(filter(d, year == 1996 & relative_years == 0)$health_exp_change)*100, 2)`%. Still, a noticeable proportion of countries made no change or even decreased their spending.
 
-When we reduce this to an increase or not, the Figure below shows the numbers of countries that increased or decreased their spending on healthcare each year.
+When we reduce this to increase or not, the Figure below shows the numbers of countries that increased or decreased their spending on healthcare each year.
 
 ```{r, fig.width = 9}
 pd <- d %>% 
@@ -289,7 +289,7 @@ class(rp) <- c(class(rp), "riverplot")
 plot(rp, srt = 90, lty = 1)
 ```
 
-Each year, it appears that there are a number of countries that transition from increasing their healthcare expenditure to decreasing it, and vice versa.
+Each year, it appears that there are some countries that transition from increasing their healthcare expenditure to decreasing it, and vice versa.
 
 ```{r}
 no_switch <- d %>% 
@@ -317,11 +317,11 @@ financing_healthcare %>%
     )
 ```
 
-We now know that many countries have great fluctations in the changes to healthcare spending from year to year, meaning we have sufficient data to examine the question of temporal precendence.
+We now know that many countries have high fluctuations in the changes to healthcare spending from year to year, meaning we have sufficient data to examine the question of temporal precedence.
 
 ## Investigating the effects of changing healthcare expenditure
 
-To investigate temporal precedence, we'll overlay information about changes in healthcare expenditure onto Figures about relative changes in child mortality over time. We'll start by examining changes in countries' child mortality rates relative to their own rate in 1996. In the Figure below, thin lines represent countries, and the thick bands represent world region averages.
+To investigate temporal precedence, we'll overlay information about changes in healthcare expenditure onto Figures about relative changes in child mortality over time. We'll start by examining changes in countries' child mortality rates relative to their rate in 1996. In the Figure below, thin lines represent countries, and the thick bands represent world region averages.
 
 ```{r}
 sum_d <- d %>% 
@@ -346,7 +346,7 @@ d %>%
   )
 ```
 
-Like the earlier Figures showed, child mortality has been generally declining over time, though there are considerable fluctations within and between countries.
+Like the earlier Figures showed, child mortality has generally been declining over time, though there are significant fluctuations within and between countries.
 
 What happens if we overlay information about healthcare expenditure changes in 1996 instead of world region information? This time, the thick bands represent averages for countries that did, or did not, increase their spending on health in 1996.
 
@@ -373,16 +373,16 @@ d %>%
     labels = c("Yes", "No")
   ) +
   labs(
-    title = "Child mortality declined faster for\ncountries investing in healthcare in 1996",
+    title = "Child mortality declined faster for countries\nthat increased their healthcare investment in 1996",
     x = NULL,
     y = "Child mortality as change relative to 1996",
     color = "Increased healthcare\nexpenditure in 1996?"
   )
 ```
 
-This Figure looks a bit like our hypothesised results. A gap in child mortality opens between those countries that increased their spending on healthcare in 1996 and those that did not. This indicates that future child mortality is lower for countries that increased their healthcare expenditure, and this difference is largest after around 10 years (in 2006).
+This Figure looks a bit like our hypothesized results. A gap in child mortality opens between those countries that increased their spending on healthcare in 1996 and those that did not. This gap indicates that future child mortality is lower for countries that increased their healthcare expenditure, and this difference is largest after around ten years (in 2006).
 
-Now, imagine doing the same comparison as above for every year from 1996 to 2003, looking ahead 10 years in each case. The below Figure shows the averaged results of these comparisons, treating the starting year as year 0.
+Now, imagine doing the same comparison as above for every year from 1996 to 2003, looking ahead ten years in each case. The below Figure shows the averaged results of these comparisons, treating the starting year as year 0.
 
 ```{r, fig.width = 8}
 d %>%
@@ -402,7 +402,7 @@ d %>%
     labels = c("Yes", "No")
   ) +
   labs(
-    title = "Child mortality declines faster when countries invest in healthcare",
+    title = "Child mortality declines faster when countries\nincrease their investment in healthcare",
     x = "Years in the future",
     y = "Child mortality as change relative to year 0",
     color = "Increased healthcare\nexpenditure in year 0?"
@@ -411,11 +411,11 @@ d %>%
 
 There seems to be a consistent difference in the future child mortality rates of countries that do or do not increase their healthcare expenditure in a given year. Furthermore, this difference continues to grow up to 10 years into the future!
 
-This provides evidence of temporal precendece and, therefore, further indicates that changes in healthcare expenditure cause or lead to changes in child mortality rates. It seems intuitive, but this provides empirical evidence to support Mr Gates' claim that investing in healthcare truly can help to reduce child mortality rates!
+This provides evidence of temporal precedence and, therefore, further indicates that changes in healthcare expenditure cause or lead to changes in child mortality rates. It seems intuitive, but this provides empirical evidence to support Mr. Gates' claim that investing in healthcare truly can help to reduce child mortality rates!
 
-## Final remarks and limitations
+## Final Remarks and Limitations
 
-A reminder that the work produced here has not been peer-reviewed, nor have the analyses been replicated or validated by others. For any readers who are particularly concerned with the subject-matter of this post, I'd ask that you do independent work before jumping to conclusions. Similarly, if you have any idea to add here, or relevant work to reference, please contact me.
+A reminder that the work produced here has not been peer-reviewed, nor have the analyses been replicated or validated by others. For any readers who are particularly concerned with the subject-matter of this post, I'd ask that you do independent work before jumping to conclusions. Similarly, if you have any ideas you'd like to add here, or relevant work to reference, please contact me.
 
 ## Sign off
 
