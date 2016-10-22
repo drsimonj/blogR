@@ -48,6 +48,8 @@ theme_post <- function(base_size = 11, base_family = "") {
 
 [\@drsimonj](https://twitter.com/drsimonj) here to investigate the effects of healthcare investment on child mortality rates over time. I hope that you find the content to be as equally interesting as I do. However, please note that this post is intended to be an informative exercise of exploring and visualizing data with R and my new [ourworldindata](https://github.com/drsimonj/ourworldindata) package. The conclusions drawn here require independent, peer-reviewed verification.
 
+On this note, thank you to [Amanda Glassman](https://twitter.com/glassmanamanda/status/789788748355604480) for bringing [this research paper](https://www.york.ac.uk/che/news/2016/che-research-paper-128/) to my attention after this post was first published. The paper suggests that healthcare expenditure does not, or weakly affects child mortality rates. I think it's an excellent paper and, if you're interested in the content, a far more legitimate resource in terms of the scientific approach taken. After reading that paper, with the exception of this paragraph, I've left this post unchanged for interested readers.
+
 ## Healthcare expenditure correlates with child mortality
 
 This post was inspired by the Figure below which appears on [this OurWorldInData.org page](https://ourworldindata.org/financing-healthcare/#correlates-determinants-consequences), managed by [Max Roser](https://twitter.com/MaxCRoser) and his team.
