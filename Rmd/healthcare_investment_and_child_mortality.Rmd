@@ -417,7 +417,11 @@ This provides evidence of temporal precedence and, therefore, further indicates 
 
 ## Final Remarks and Limitations
 
-A reminder that the work produced here has not been peer-reviewed, nor have the analyses been replicated or validated by others. For any readers who are particularly concerned with the subject-matter of this post, I'd ask that you do independent work before jumping to conclusions. Similarly, if you have any ideas you'd like to add here, or relevant work to reference, please contact me.
+To round this post off, I'd like to remind you that there are some major limitations to the conclusions that have been drawn.
+
+A particular concern is whether temporal precendence, as evidenced here, is a solid enough indicator of a causal relationship. The truth is that it is not. Temporal precedence is a condition that is necessary, but not sufficient, to determine that a causal relationship exists. Thus, the evidence presented here might lend support to the notion of causality, but it is far from sufficient for being confident that it exists. As a scientist, I rely on randomized and controlled experiments to establish causality. But running such an experiment with healthcare will (hopefully) never happen. In my brief but enjoyable exchange about this post with [Rui Quintino](https://twitter.com/rquintino?lang=en) after first publishing it, Rui suggested that it might be worth looking for [natural experiments](https://www.britannica.com/topic/natural-experiment) in the data. I fully agree, so please contact me if you're aware of any such events.
+
+Also, a reminder that the work produced here has not been peer-reviewed, nor have the analyses been replicated or validated by others (though, since first publishing this post, I've had some wonderful discussions with people like Amanda and Rui). For any other readers who are particularly concerned with the subject-matter of this post, I'd ask that you do independent work and to also feel free to contact me with any ideas you'd like to add here, or relevant work to reference.
 
 ## Sign off
 
