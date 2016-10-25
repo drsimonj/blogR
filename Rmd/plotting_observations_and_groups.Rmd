@@ -7,16 +7,104 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
   fig.path = "figs/",
-  fig.height = 3,
-  fig.width = 4,
+  #fig.height = 3,
+  #fig.width = 4,
   fig.align = "center"
 )
 ```
 
-[\@drsimonj](https://twitter.com/drsimonj) here to share my approach for visualising observation-level and aggregrated/summary data in the same plot. Here are some examples of what we'll be creating:
+[\@drsimonj](https://twitter.com/drsimonj) here to share my approach for visualising observation-level overlaid with aggregrated group data in the same plot. Here are some examples of what we'll be creating:
 
-```{r init-example, message = FALSE}
+```{r init-example, message = FALSE, echo = F}
+library(tidyverse)
 
+# Car horespower
+od <- mtcars %>%
+  select(cyl, hp) %>% 
+  mutate(cyl = factor(cyl, levels = c(4, 6, 8)))
+
+gd <- od %>% 
+        group_by(cyl) %>% 
+        summarise(
+          hp = mean(hp)
+        )
+
+ggplot(od, aes(x = cyl, y = hp, color = cyl, fill = cyl)) +
+  geom_bar(data = gd, stat = "identity", alpha = .3) +
+  geom_point() +
+  guides(color = "none", fill = "none") +
+  theme_bw() +
+  labs(
+    title = "Car horespower by cylinders",
+    x = "Number of cylinders",
+    y = "Horsepower"
+  )
+
+# Iris sepal size
+od <- iris
+gd <- od %>%
+        group_by(Species) %>%
+        summarise(Sepal.Length = mean(Sepal.Length),
+                  Sepal.Width  = mean(Sepal.Width))
+
+ggplot(od, aes(x = Sepal.Length, y = Sepal.Width, color = Species)) +
+  geom_point(aes(shape = Species), alpha = .4) +
+  geom_point(data = gd, size = 4) +
+  theme_bw() +
+  guides(shape = "none") +
+  labs(
+    title = "Sepal size of iris species",
+    x = "Length",
+    y = "Width",
+    color = NULL
+  )
+
+
+# Life expenctancy over time
+
+library(ourworldindata)
+
+od <- financing_healthcare %>%
+  select(year, country, continent, life_expectancy) %>%
+  drop_na() %>% 
+  filter(year > 1995)
+
+gd <- od %>%
+  group_by(continent, year) %>%
+  summarise(life_expectancy = mean(life_expectancy))
+
+ggplot(od, aes(x = year, y = life_expectancy, color = continent)) +
+  geom_line(aes(group = country), alpha = .2) +
+  geom_line(data = gd, size = 2) +
+  theme_bw() +
+  labs(
+    title = "Life expenctancy over time",
+    x = NULL,
+    y = "Life expectancy at birth",
+    color = "World Region"
+  )
+
+```
+
+Our generic approach will be:
+
+```{r, eval = F}
+# Observation-level data
+od
+
+# Group-level data
+gd <- od %>% 
+        group_by(GROUPING-VARIABLES) %>% 
+        summarise(
+          VAR1 = mean(VAR1),
+          VAR2 = mean(VAR2),
+          ...
+        )
+
+# Plot
+ggplot(od, aes(GEOM-AESTHETICS)) +
+  geom_*() +
+  geom_*(data = gd)
 ```
 
 
