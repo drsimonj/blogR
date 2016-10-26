@@ -1,0 +1,394 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  #fig.height = 3,
+  #fig.width = 4,
+  fig.align = "center"
+)
+```
+
+[\@drsimonj](https://twitter.com/drsimonj) here to share my approach for visualizing individual observations with group means in the same plot. Here are some examples of what we'll be creating:
+
+```{r init-example, message = FALSE, echo = F}
+library(ggplot2)
+library(dplyr)
+
+# Car horsepower
+id <- mtcars %>%
+  tibble::rownames_to_column() %>% 
+  mutate(cyl = factor(cyl, levels = c(4, 6, 8)))
+
+gd <- id %>% 
+        group_by(cyl) %>% 
+        summarise(
+          hp = mean(hp)
+        )
+
+ggplot(id, aes(x = cyl, y = hp, color = cyl, fill = cyl)) +
+  geom_bar(data = gd, stat = "identity", alpha = .3) +
+  ggrepel::geom_text_repel(aes(label = rowname), color = "black", size = 2.5, segment.color = "grey") +
+  geom_point() +
+  guides(color = "none", fill = "none") +
+  theme_bw() +
+  labs(
+    title = "Car horespower by cylinders",
+    x = "Number of cylinders",
+    y = "Horsepower"
+  )
+
+# Iris sepal size
+id <- iris
+gd <- id %>%
+        group_by(Species) %>%
+        summarise(Sepal.Length = mean(Sepal.Length),
+                  Sepal.Width  = mean(Sepal.Width))
+
+ggplot(id, aes(x = Sepal.Length, y = Sepal.Width, color = Species, shape = Species)) +
+  geom_point(alpha = .4) +
+  geom_point(data = gd, size = 4) +
+  theme_bw() +
+  guides(color = guide_legend("Species"),  shape = guide_legend("Species")) +
+  labs(
+    title = "Petal size of iris species",
+    x = "Length",
+    y = "Width"
+  )
+
+
+# Life expectancy over time
+
+library(ourworldindata)
+
+id <- financing_healthcare %>%
+        filter(continent %in% c("Oceania", "Europe") & between(year, 2001, 2005)) %>% 
+        select(continent, country, year, life_expectancy) %>% 
+        na.omit()
+
+gd <- id %>%
+  group_by(continent, year) %>%
+  summarise(life_expectancy = mean(life_expectancy))
+
+ggplot(id, aes(x = year, y = life_expectancy, color = continent)) +
+  geom_line(aes(group = country), alpha = .3) +
+  geom_line(data = gd, alpha = .8, size = 3) +
+  theme_bw() +
+  labs(
+    title = "Changes in life expectancy\nacross countries and world regions",
+    x = NULL,
+    y = "Life expectancy",
+    color = NULL
+  )
+```
+
+I find these sorts of plots to be incredibly useful for visualizing and gaining insight into our data. We often visualize group means only, sometimes with the likes of standard errors bars. Alternatively, we plot only the individual observations using histograms or scatter plots. Separately, these two methods have unique problems. For example, we can't easily see sample sizes or variability with group means, and we can't easily see underlying patterns or trends in individual observations. But when individual observations and group means are combined into a single plot, we can produce some powerful visualizations.
+
+## General approach
+
+Below is generic pseudo-code capturing the approach that we'll cover in this post. Following this will be some worked examples of diving deeper into each component.
+
+```{r, eval = F}
+# Packages we need
+library(ggplot2)
+library(dplyr)
+
+# Have an individual-observation data set
+id
+
+# Create a group-means data set
+gd <- id %>% 
+        group_by(GROUPING-VARIABLES) %>% 
+        summarise(
+          VAR1 = mean(VAR1),
+          VAR2 = mean(VAR2),
+          ...
+        )
+
+# Plot both data sets
+ggplot(id, aes(GEOM-AESTHETICS)) +
+  geom_*() +
+  geom_*(data = gd)
+
+# Adjust plot to effectively differentiate data layers 
+```
+
+## Tidyverse packages
+
+Throughout, we'll be using packages from the tidyverse: ggplot2 for plotting, and dplyr for working on the data. Let's load these into our session:
+
+```{r, message= F}
+library(ggplot2)
+library(dplyr)
+```
+
+## Group means on a single variable
+
+To get started, we'll examine the logic behind the pseudo code with a simple example of presenting group means on a single variable. Let's use `mtcars` as our individual-observation data set, `id`:
+
+```{r}
+id <- mtcars %>% tibble::rownames_to_column() %>% as_data_frame()
+id
+```
+
+Say we want to plot cars' horsepower (`hp`), separately for automatic and manual cars (`am`). Let's quickly convert `am` to a factor variable with proper labels:
+
+```{r}
+id <- id %>% mutate(am = factor(am, levels = c(0, 1), labels = c("automatic", "manual")))
+```
+
+Using the individual observations, we can plot the data as points via:
+
+```{r}
+ggplot(id, aes(x = am, y = hp)) +
+  geom_point()
+```
+
+What if we want to visualize the means for these groups of points? We start by computing the mean horsepower for each transmission type into a new group-means data set (`gd`) as follows:
+
+```{r}
+gd <- id %>% 
+        group_by(am) %>% 
+        summarise(hp = mean(hp))
+gd
+```
+
+There are a few important aspects to this:
+
+- We group our individual observations by the categorical variable using `group_by()`.
+- We `summarise()` the variable as its `mean()`.
+- We give the summarized variable the same name in the new data set. E.g., `hp = mean(hp)` results in `hp` being in both data sets.
+
+We could plot these means as bars via:
+
+```{r}
+ggplot(gd, aes(x = am, y = hp)) +
+  geom_bar(stat = "identity")
+```
+
+The challenge now is to combine these plots.
+
+As the base, we start with the individual-observation plot:
+
+```{r}
+ggplot(id, aes(x = am, y = hp)) +
+  geom_point()
+```
+
+Next, to display the group-means, we add a geom layer specifying `data = gd`. In this case, we'll specify the `geom_bar()` layer as above:
+
+```{r}
+ggplot(id, aes(x = am, y = hp)) +
+  geom_point() +
+  geom_bar(data = gd, stat = "identity")
+```
+
+Although there are some obvious problems, we've successfully covered most of our pseudo-code and have individual observations and group means in the one plot.
+
+Before we address the issues, let's discuss how this works. The main point is that our base layer (`ggplot(id, aes(x = am, y = hp))`) specifies the variables (`am` and `hp`) that are going to be plotted. By including `id`, it also means that any geom layers that follow without specifying `data`, will use the individual-observation data. Thus, `geom_point()` plots the individual points. `geom_bar()`, however, specifies `data = gd`, meaning it will try to use information from the group-means data. Because our group-means data has the same variables as the individual data, it can make use of the variables mapped out in our base `ggplot()` layer.
+
+At this point, the elements we need are in the plot, and it's a matter of adjusting the visual elements to differentiate the individual and group-means data and display the data effectively overall. Among other adjustments, this typically involves paying careful attention to the order in which the geom layers are added, and making heavy use of the alpha (transparency) values.
+
+For example, we can make the bars transparent to see all of the points by reducing the `alpha` of the bars:
+
+```{r}
+ggplot(id, aes(x = am, y = hp)) +
+  geom_point() +
+  geom_bar(data = gd, stat = "identity", alpha = .3)
+```
+
+Here's a final polished version that includes:
+
+- Color to the bars and points for visual appeal.
+- `ggrepel::geom_text_repel` to add car labels to each point.
+- `theme_bw()` to clean the overall appearance.
+- Proper axis labels.
+
+```{r}
+ggplot(id, aes(x = am, y = hp, color = am, fill = am)) +
+  geom_bar(data = gd, stat = "identity", alpha = .3) +
+  ggrepel::geom_text_repel(aes(label = rowname), color = "black", size = 2.5, segment.color = "grey") +
+  geom_point() +
+  guides(color = "none", fill = "none") +
+  theme_bw() +
+  labs(
+    title = "Car horespower by transmission type",
+    x = "Transmission",
+    y = "Horsepower"
+  )
+```
+
+Notice that, again, we can specify how variables are mapped to aesthetics in the base `ggplot()` layer (e.g., `color = am`), and this affects the individual and group-means geom layers because both data sets have the same variables.
+
+## Group means on two variables
+
+Next, we'll move to overlaying individual observations and group means for two continuous variables. This time we'll use the `iris` data set as our individual-observation data:
+
+```{r}
+id <- as_data_frame(iris)
+id
+```
+
+Let's say we want to visualize the petal length and width for each iris `Species`.
+
+Let's create the group-means data set as follows:
+
+```{r}
+gd <- id %>% 
+        group_by(Species) %>% 
+        summarise(Petal.Length = mean(Petal.Length),
+                  Petal.Width  = mean(Petal.Width))
+gd
+```
+
+We've now got the variable means for each Species in a new group-means data set, `gd`. The important point, as before, is that there are the same variables in `id` and `gd`.
+
+Let's prepare our base plot using the individual observations, `id`:
+
+```{r}
+ggplot(id, aes(x = Petal.Length, y = Petal.Width)) +
+  geom_point()
+```
+
+Let's use the color aesthetic to distinguish the groups:
+
+```{r}
+ggplot(id, aes(x = Petal.Length, y = Petal.Width, color = Species)) +
+  geom_point()
+```
+
+Now we can add a geom that uses our group means. We'll use `geom_point()` again:
+
+```{r}
+ggplot(id, aes(x = Petal.Length, y = Petal.Width, color = Species)) +
+  geom_point() +
+  geom_point(data = gd)
+```
+
+Did it work? Well, yes, it did. The problem is that we can't distinguish the group means from the individual observations because the points look the same. Again, we've successfully integrated observations and means into a single plot. The challenge now is to make various adjustments to highlight the difference between the data layers.
+
+To do this, we'll fade out the observation-level geom layer (using `alpha`) and increase the `size` of the group means:
+
+```{r}
+ggplot(id, aes(x = Petal.Length, y = Petal.Width, color = Species)) +
+  geom_point(alpha = .4) +
+  geom_point(data = gd, size = 4)
+```
+
+Here's a final polished version for you to play around with:
+
+```{r}
+ggplot(id, aes(x = Petal.Length, y = Petal.Width, color = Species, shape = Species)) +
+  geom_point(alpha = .4) +
+  geom_point(data = gd, size = 4) +
+  theme_bw() +
+  guides(color = guide_legend("Species"),  shape = guide_legend("Species")) +
+  labs(
+    title = "Petal size of iris species",
+    x = "Length",
+    y = "Width"
+  )
+```
+
+## Repeated observations
+
+One useful avenue I see for this approach is to visualize repeated observations. For example, colleagues in my department might want to plot depression levels measured at multiple time points for people who receive one of two types of treatment. Typically, they would present the means of the two groups over time with error bars. However, we can improve on this by also presenting the individual trajectories.
+
+As an example, let's examine changes in healthcare expenditure over five years (from 2001 to 2005) for countries in Oceania and the Europe.
+
+Start by gathering our individual observations from my new [ourworldindata package for R](https://github.com/drsimonj/ourworldindata), which you can learn more about in a [previous blogR post](https://goo.gl/1EQX94):
+
+```{r}
+# Individual-observations data
+library(ourworldindata)
+id <- financing_healthcare %>% 
+        filter(continent %in% c("Oceania", "Europe") & between(year, 2001, 2005)) %>% 
+        select(continent, country, year, health_exp_total) %>% 
+        na.omit()
+id
+```
+
+Let's plot these individual country trajectories:
+
+```{r}
+ggplot(id, aes(x = year, y = health_exp_total)) +
+  geom_line()
+```
+
+Hmm, this doesn't look like right. The problem is that we need to `group` our data by `country`:
+
+```{r}
+ggplot(id, aes(x = year, y = health_exp_total, group = country)) +
+  geom_line()
+```
+
+We now have a separate line for each country. Let's `color` these depending on the world region (`continent`) in which they reside:
+
+```{r}
+ggplot(id, aes(x = year, y = health_exp_total, group = country, color = continent)) +
+  geom_line()
+```
+
+If we tried to follow our usual steps by creating group-level data for each world region and adding it to the plot, we would do something like this:
+
+```{r, eval = F}
+gd <- id %>% 
+        group_by(continent) %>% 
+        summarise(health_exp_total = mean(health_exp_total))
+
+ggplot(id, aes(x = year, y = health_exp_total, group = country, color = continent)) +
+  geom_line() +
+  geom_line(data = gd)
+```
+
+This, however, will lead to a couple of errors, which are both caused by variables being called in the base `ggplot()` layer, but not appearing in our group-means data, `gd`. 
+
+First, we're not taking `year` into account, but we want to! In this case, `year` must be treated as a second grouping variable, and included in the `group_by` command. Thus, to compute the relevant group-means, we need to do the following:
+
+```{r}
+gd <- id %>% 
+        group_by(continent, year) %>% 
+        summarise(health_exp_total = mean(health_exp_total))
+gd
+```
+
+The second error is because we're grouping lines by `country`, but our group means, `gd`, don'tcontain this information. Thus, we need to move `aes(group = country)` into the geom layer that draws the individual-observation data.
+
+Now, our plot will be:
+
+```{r}
+ggplot(id, aes(x = year, y = health_exp_total, color = continent)) +
+  geom_line(aes(group = country)) +
+  geom_line(data = gd)
+```
+
+It worked again; we just need to make the necessary adjustments to see the data properly. Here's a polished final version of the plot. See if you can work it out!
+
+```{r}
+ggplot(id, aes(x = year, y = health_exp_total, color = continent)) +
+  geom_line(aes(group = country), alpha = .3) +
+  geom_line(data = gd, alpha = .8, size = 3) +
+  theme_bw() +
+  labs(
+    title = "Changes in healthcare spending\nacross countries and world regions",
+    x = NULL,
+    y = "Total healthcare investment ($)",
+    color = NULL
+  )
+```
+
+## Final challenge
+
+For me, in a scientific paper, I like to draw time-series like the example above using the [line plot described in another blogR post](https://drsimonj.svbtle.com/mean-and-ci-plot-for-twoway-designs-using-ggplot2). As a challenge, I'll leave it to you to draw this sort of neat time series with individual trajectories drawn underneath the mean trajectories with error bars. Don't hesitate to get in touch if you're struggling. Even better, succeed and tweet the results to let me know by including [\@drsimonj](https://twitter.com/drsimonj)!
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
