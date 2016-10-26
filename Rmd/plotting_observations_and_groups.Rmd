@@ -13,7 +13,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-[\@drsimonj](https://twitter.com/drsimonj) here to share my approach for visualising observation-level overlaid with aggregrated group data in the same plot. Here are some examples of what we'll be creating:
+[\@drsimonj](https://twitter.com/drsimonj) here to share my approach for visualising observation-level data overlaid with aggregrated group data in the same plot. Here are some examples of what we'll be creating:
 
 ```{r init-example, message = FALSE, echo = F}
 library(tidyverse)
@@ -47,16 +47,15 @@ gd <- od %>%
         summarise(Sepal.Length = mean(Sepal.Length),
                   Sepal.Width  = mean(Sepal.Width))
 
-ggplot(od, aes(x = Sepal.Length, y = Sepal.Width, color = Species)) +
-  geom_point(aes(shape = Species), alpha = .4) +
+ggplot(od, aes(x = Sepal.Length, y = Sepal.Width, color = Species, shape = Species)) +
+  geom_point(alpha = .4) +
   geom_point(data = gd, size = 4) +
   theme_bw() +
-  guides(shape = "none") +
+  guides(color = guide_legend("Species"),  shape = guide_legend("Species")) +
   labs(
-    title = "Sepal size of iris species",
+    title = "Petal size of iris species",
     x = "Length",
-    y = "Width",
-    color = NULL
+    y = "Width"
   )
 
 
@@ -65,38 +64,41 @@ ggplot(od, aes(x = Sepal.Length, y = Sepal.Width, color = Species)) +
 library(ourworldindata)
 
 od <- financing_healthcare %>%
-  select(year, country, continent, life_expectancy) %>%
-  drop_na() %>% 
-  filter(year > 1995)
+        filter(continent %in% c("Oceania", "Europe") & between(year, 2001, 2005)) %>% 
+        select(continent, country, year, life_expectancy) %>% 
+        drop_na()
 
 gd <- od %>%
   group_by(continent, year) %>%
   summarise(life_expectancy = mean(life_expectancy))
 
 ggplot(od, aes(x = year, y = life_expectancy, color = continent)) +
-  geom_line(aes(group = country), alpha = .2) +
-  geom_line(data = gd, size = 2) +
+  geom_line(aes(group = country), alpha = .3) +
+  geom_line(data = gd, alpha = .8, size = 3) +
   theme_bw() +
   labs(
-    title = "Life expenctancy over time",
+    title = "Changes in life expectancy\nacross countries and world regions",
     x = NULL,
-    y = "Life expectancy at birth",
-    color = "World Region"
+    y = "Life expectancy",
+    color = NULL
   )
-
 ```
 
-I find these sorts of plots to be incredibly useful for visualising and gaining insight into our data. Most often, however, we tend to visualise only the aggregrated group data like group means with standard errors bars. Alternatively, people plot only the observation-level data. Separately, these two visualisation methods have unique problems. For example, we can't easily see variability with group-level data, and we can't easily see underlying patterns or trends with observation-level data. But when observation-level and group-level data are combined into a single plot, we can produce some really powerful visualizations.
+I find these sorts of plots to be incredibly useful for visualising and gaining insight into our data. Most often, however, we tend to visualise only the aggregrated group data like group means with standard errors bars. Alternatively, people plot only the observation-level data. Separately, these two visualisation methods have unique problems. For example, we can't easily see sample sizes or variability with group-level data, and we can't easily see underlying patterns or trends with observation-level data. But when observation-level and group-level data are combined into a single plot, we can produce some really powerful visualizations.
+
+## General approach
 
 Below is generic pseudo-code capturing the approach that we'll cover in this post. Following this will be some worked examples to dive deeper into each component.
 
 ```{r, eval = F}
-library(tidyverse)
+# Packages we need
+library(ggplot2)
+library(dplyr)
 
-# Observation-level data
+# Have an observation-level data set
 od
 
-# Group-level data
+# Create a group-level data set
 gd <- od %>% 
         group_by(GROUPING-VARIABLES) %>% 
         summarise(
@@ -105,13 +107,275 @@ gd <- od %>%
           ...
         )
 
-# Plot
+# Plot both data sets
 ggplot(od, aes(GEOM-AESTHETICS)) +
   geom_*() +
   geom_*(data = gd)
+
+# Adjust plot to effectively differentiate data layers 
 ```
 
+## Tidyverse packages
 
+Throughout, we'll be using packages from the tidyverse: ggplot2 for plotting, and dplyr for working on the data. Let's load these into our session:
+
+```{r, message= F}
+library(ggplot2)
+library(dplyr)
+```
+
+## Group means on a single variables
+
+To get started, we'll examine the logic behind the pseudo code with a simple example of presenting group means on a single variable. Let's use `mtcars` as our observation-level data set, `od`:
+
+```{r}
+od <- as_tibble(mtcars)
+od
+```
+
+Say we want to plot cars' horsepower (`hp`), separately for automatic and manual cars (`am`). Let's quickly convert `am` to a factor variable with proper labels:
+
+```{r}
+od <- od %>% mutate(am = factor(am, levels = c(0, 1), labels = c("automatic", "manual")))
+```
+
+Using this observation-level data, we can plot the data as points via:
+
+```{r}
+ggplot(od, aes(x = am, y = hp)) +
+  geom_point()
+```
+
+What if we want to visualize the means for these groups of points? We start by computing the mean horsepower for each transmission type into a new group-level data set (`gd`) as follows:
+
+```{r}
+gd <- od %>% 
+        group_by(am) %>% 
+        summarise(hp = mean(hp))
+gd
+```
+
+There are a few important aspects to this:
+
+- We group our observation-level data set by the categorical variable using `group_by()`.
+- We `summarise()` the observation-level variable as it's `mean()`.
+- We give the summarised variable the same name as the observation-level variable. E.g., `hp = mean(hp)` results in `hp` being in both data sets.
+
+We could plot these means as bars via:
+
+```{r}
+ggplot(gd, aes(x = am, y = hp)) +
+  geom_bar(stat = "identity")
+```
+
+The challenge now is to combine these plots.
+
+As the base, we start with the observation-level plot:
+
+```{r}
+ggplot(od, aes(x = am, y = hp)) +
+  geom_point()
+```
+
+Next, to display the group-level data, we add a geom layer specifying `data = gd`. In this case, we'll specify the `geom_bar()` layer as above:
+
+```{r}
+ggplot(od, aes(x = am, y = hp)) +
+  geom_point() +
+  geom_bar(data = gd, stat = "identity")
+```
+
+Although there are some obvious problems, we've successfully covered most of our psuedo-code and have observation-level and group-level information in the one plot.
+
+Before we address the issues, let's discuss how this works. The main point is that our base layer (`ggplot(od, aes(x = am, y = hp))`) specifys the variables (`am` and `hp`) that are going to be plotted. By including `od`, it also means that any geom layers that follow without specifying `data`, will use the observation-level data. Thus, `geom_point()` plots the observation-level points. `geom_bar()`, however, specifys `data = gd`, meaning it will try to use information from the group-level data. Because our group-level data has the same variables as the observational-level data, it can make use of the variables mapped out in our base `ggplot()` layer.
+
+At this point, the elements we need are in the plot and it's a matter of adjusting the visual elements to differentiate the observation and group-level data, and display the data effectively overall. Among other adjustments, this typically involves paying careful attention to the order in which the geom layers are added, and making heavy use of the alpha (transparency) values.
+
+For example, we can make the bars transparent to see all of the points by reducing the `alpha` of the bars:
+
+```{r}
+ggplot(od, aes(x = am, y = hp)) +
+  geom_point() +
+  geom_bar(data = gd, stat = "identity", alpha = .3)
+```
+
+Here's a final polished version that adds color to the bars and points for visual appeal, proper axis labels, and uses `theme_bw()` to clean the overall appearance:
+
+```{r}
+ggplot(od, aes(x = am, y = hp, color = am, fill = am)) +
+  geom_bar(data = gd, stat = "identity", alpha = .3) +
+  geom_point() +
+  guides(color = "none", fill = "none") +
+  theme_bw() +
+  labs(
+    title = "Car horespower by transmission type",
+    x = "Transmission",
+    y = "Horsepower"
+  )
+```
+
+Notice that, again, we can specify how variables are mapped to aesthetics in the base `ggplot()` layer (e.g., `color = am`), and this affects the observation-level and group-level geom layers because both data sets have the same variables.
+
+## Group means on two variables
+
+Next, we'll move to overlaying observation and group data for two continuous variables. This time we'll use the `iris` data set as our observation-level data:
+
+```{r}
+od <- as_tibble(iris)
+od
+```
+
+Let's say we want to visualise the petal length and width for each iris `Species`.
+
+Let's create the group-level data set as follows:
+
+```{r}
+gd <- od %>% 
+        group_by(Species) %>% 
+        summarise(Petal.Length = mean(Petal.Length),
+                  Petal.Width  = mean(Petal.Width))
+gd
+```
+
+We've now got the means of each variable for each Species in a new group-level data set, `gd`. The important point, as before, is that there are the same variables in `od` and `gd`.
+
+Let's prepare our base plot using the observation-level data, `od`:
+
+```{r}
+ggplot(od, aes(x = Petal.Length, y = Petal.Width)) +
+  geom_point()
+```
+
+Let's use the color aesthetic to distinguish the groups:
+
+```{r}
+ggplot(od, aes(x = Petal.Length, y = Petal.Width, color = Species)) +
+  geom_point()
+```
+
+Now we can add a geom that uses our group-level data. We'll use `geom_point()` again:
+
+```{r}
+ggplot(od, aes(x = Petal.Length, y = Petal.Width, color = Species)) +
+  geom_point() +
+  geom_point(data = gd)
+```
+
+Did it work? Well, yes, it did. The problem is that we can't distinguish the group means from the individual observations because the points look the same. Again, we've successfully integrated observation and group-level data into a single plot. The challenge now is to make various adjustments to highlight the difference between the data layers.
+
+To do this, we'll fade out the observation-level geom layer (using `alpha`) and increase the `size` of the group-level data:
+
+```{r}
+ggplot(od, aes(x = Petal.Length, y = Petal.Width, color = Species)) +
+  geom_point(alpha = .4) +
+  geom_point(data = gd, size = 4)
+```
+
+Here's a final polished version for you to play around with:
+
+```{r}
+ggplot(od, aes(x = Petal.Length, y = Petal.Width, color = Species, shape = Species)) +
+  geom_point(alpha = .4) +
+  geom_point(data = gd, size = 4) +
+  theme_bw() +
+  guides(color = guide_legend("Species"),  shape = guide_legend("Species")) +
+  labs(
+    title = "Petal size of iris species",
+    x = "Length",
+    y = "Width"
+  )
+```
+
+## Repeated observations
+
+One useful avenue I see for this approach is to visualize repeated observations. For example, colleauges in my department might want to plot depression levels measured at multiple time points for people who recieve one of two types of treatment. Typically, they would present the means of the two groups over time with error bars. However, we can improve on this by also presenting the observation-level data.
+
+As an example, let's examine changes in healthcare expenditure over five years (from 2001 to 2005) for countries in Ocenaia and the Europe.
+
+Start by gathering our observation-level data from my new [ourworldindata package for R](https://github.com/drsimonj/ourworldindata), which you can learn more about in a [previous blogR post](https://goo.gl/1EQX94):
+
+```{r}
+# Observation-level data
+library(ourworldindata)
+od <- financing_healthcare %>% 
+        filter(continent %in% c("Oceania", "Europe") & between(year, 2001, 2005)) %>% 
+        select(continent, country, year, health_exp_total) %>% 
+        drop_na()
+od
+```
+
+Let's plot this observation-level data:
+
+```{r}
+ggplot(od, aes(x = year, y = health_exp_total)) +
+  geom_line()
+```
+
+Hmm, this doesn't look like right. The problem is that we need to `group` our data by `country`:
+
+```{r}
+ggplot(od, aes(x = year, y = health_exp_total, group = country)) +
+  geom_line()
+```
+
+We now have a separate line for each country. Let's `color` these depending on the world region (`continent`) in which they reside:
+
+```{r}
+ggplot(od, aes(x = year, y = health_exp_total, group = country, color = continent)) +
+  geom_line()
+```
+
+If we tried to follow our usual steps by creating group-level data for each continent and adding it to the plot, we would do something like this:
+
+```{r, eval = F}
+gd <- od %>% 
+        group_by(continent) %>% 
+        summarise(health_exp_total = mean(health_exp_total))
+
+ggplot(od, aes(x = year, y = health_exp_total, group = country, color = continent)) +
+  geom_line() +
+  geom_line(data = gd)
+```
+
+This, however, will lead to a couple of errors, both caused by variables being called in the base `ggplot()` layer, but not appearing in our group-level data, `gd`. 
+
+First, we're not taking `year` into account, but we want to! In this case, `year` must be treated like a second grouping variable, and included in the `group_by` command. Thus, to compute the group-level data, we need to do the following:
+
+```{r}
+gd <- od %>% 
+        group_by(continent, year) %>% 
+        summarise(health_exp_total = mean(health_exp_total))
+gd
+```
+
+The second error is because we're grouping lines by `country`, but our group-level data, `gd`, doesn't contain this variable, and nor do we want it to. Thus, we need to move `aes(group = country)` into the geom layer that draws the observation-level data.
+
+Now, our plot we be:
+
+```{r}
+ggplot(od, aes(x = year, y = health_exp_total, color = continent)) +
+  geom_line(aes(group = country)) +
+  geom_line(data = gd)
+```
+
+It worked again, we just need to make the necessary adjustments to see the data properly. Here's a final polished version of the plot. See if you can work it out!
+
+```{r}
+ggplot(od, aes(x = year, y = health_exp_total, color = continent)) +
+  geom_line(aes(group = country), alpha = .3) +
+  geom_line(data = gd, alpha = .8, size = 3) +
+  theme_bw() +
+  labs(
+    title = "Changes in healthcare spending\nacross countries and world regions",
+    x = NULL,
+    y = "Total healthcare investment ($)",
+    color = NULL
+  )
+```
+
+## Final challenge
+
+For me, in a scientific paper, I like to combine this approach with the neat [line plot described in another blogR post](https://drsimonj.svbtle.com/mean-and-ci-plot-for-twoway-designs-using-ggplot2). I'll leave this to you as a challenge, but don't hesitate to get in touch if you're struggling. Even better, succeed and tweet the results to let me know using [\@drsimonj](https://twitter.com/drsimonj)!
 
 ## Sign off
 
