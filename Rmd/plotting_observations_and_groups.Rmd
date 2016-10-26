@@ -86,9 +86,13 @@ ggplot(od, aes(x = year, y = life_expectancy, color = continent)) +
 
 ```
 
-Our generic approach will be:
+I find these sorts of plots to be incredibly useful for visualising and gaining insight into our data. Most often, however, we tend to visualise only the aggregrated group data like group means with standard errors bars. Alternatively, people plot only the observation-level data. Separately, these two visualisation methods have unique problems. For example, we can't easily see variability with group-level data, and we can't easily see underlying patterns or trends with observation-level data. But when observation-level and group-level data are combined into a single plot, we can produce some really powerful visualizations.
+
+Below is generic pseudo-code capturing the approach that we'll cover in this post. Following this will be some worked examples to dive deeper into each component.
 
 ```{r, eval = F}
+library(tidyverse)
+
 # Observation-level data
 od
 
