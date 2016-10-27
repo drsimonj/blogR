@@ -381,9 +381,31 @@ ggplot(id, aes(x = year, y = health_exp_total, color = continent)) +
   )
 ```
 
-## Final challenge
+## A challenge
 
 For me, in a scientific paper, I like to draw time-series like the example above using the [line plot described in another blogR post](https://drsimonj.svbtle.com/mean-and-ci-plot-for-twoway-designs-using-ggplot2). As a challenge, I'll leave it to you to draw this sort of neat time series with individual trajectories drawn underneath the mean trajectories with error bars. Don't hesitate to get in touch if you're struggling. Even better, succeed and tweet the results to let me know by including [\@drsimonj](https://twitter.com/drsimonj)!
+
+## Boxplots
+
+After publishing this post, I received a wonderful email from Professor Bob Sekuler (Brandeis University), who tells me that plotting individual points over group means is a growing trend. He also suggested that boxplots, rather than bars, helps to provide even more information, and showed me some nice examples of just that. So, I thought I'd include a simple example here for other readers who might be interested.
+
+When it comes to boxplots, our lives get a little easier, because we don't need to create a group-means data frame. So, in the below example, we plot boxplots using `geom_boxplot()`. Note that we need the `group` aesthtic to split by transmission type (`am`). We then overlay it with points using `geom_jitter()`. We could use `geom_point()`, but jitter just spreads the points out a bit incase there are any that overlap.
+
+```{r}
+mtcars %>% 
+  mutate(am = factor(am, levels = c(0, 1), labels = c("Automatic", "Manual"))) %>% 
+  ggplot(aes(x = am, y = hp, group = am, fill = am)) +
+    geom_boxplot(alpha = .7) +
+    geom_jitter(width = .05, alpha = .4) +
+    guides(fill = "none") +
+    theme_bw() +
+    labs(
+      x = "Transmission",
+      y = "Horsepower"
+    )
+```
+
+This is a really nice step up from simple bars, as we get information about quantiles, skew, and outliers, as well as the means.
 
 ## Sign off
 
