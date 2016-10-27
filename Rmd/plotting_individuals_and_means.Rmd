@@ -356,7 +356,7 @@ gd <- id %>%
 gd
 ```
 
-The second error is because we're grouping lines by `country`, but our group means, `gd`, don'tcontain this information. Thus, we need to move `aes(group = country)` into the geom layer that draws the individual-observation data.
+The second error is because we're grouping lines by `country`, but our group means data, `gd`, doesn't contain this information. Thus, we need to move `aes(group = country)` into the geom layer that draws the individual-observation data.
 
 Now, our plot will be:
 

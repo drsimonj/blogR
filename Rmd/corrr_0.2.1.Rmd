@@ -18,7 +18,7 @@ knitr::opts_chunk$set(
 You can install or update to this latest version directly from CRAN by running:
 
 ```{r eval = FALSE}
-install.packages(corrr)
+install.packages("corrr")
 ```
 
 Let's load corrr into our workspace and create a correlation data frame of the mtcars data set to work with:
