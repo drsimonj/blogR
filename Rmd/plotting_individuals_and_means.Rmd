@@ -387,7 +387,7 @@ For me, in a scientific paper, I like to draw time-series like the example above
 
 ## Boxplots
 
-After publishing this post, I received a wonderful email from Professor Bob Sekuler (Brandeis University), who tells me that plotting individual points over group means is a growing trend. He also suggested that boxplots, rather than bars, helps to provide even more information, and showed me some nice examples of just that. So, I thought I'd include a simple example here for other readers who might be interested.
+After publishing this post, I received a wonderful email from Professor Bob Sekuler (Brandeis University), who tells me that plotting individual points over group means is a growing trend. He also suggested that boxplots, rather than bars, helps to provide even more information, and showed me some nice examples that were created by him and his student, Yile Sun. So, I thought I'd include a simple example here for other readers who might be interested.
 
 When it comes to boxplots, our lives get a little easier, because we don't need to create a group-means data frame. So, in the below example, we plot boxplots using `geom_boxplot()`. Note that we need the `group` aesthtic to split by transmission type (`am`). We then overlay it with points using `geom_jitter()`. We could use `geom_point()`, but jitter just spreads the points out a bit incase there are any that overlap.
 
