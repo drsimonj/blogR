@@ -1,0 +1,101 @@
+---
+output: html_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  #fig.height = 3,
+  #fig.width = 4,
+  fig.align = "center"
+)
+```
+
+[\@drsimonj](https://twitter.com/drsimonj) here to 
+
+Relevant webpages:
+
+- https://christophergandrud.github.io/networkD3/
+- http://igraph.org/r/
+- http://www-personal.umich.edu/~mejn/netdata/
+- http://stackoverflow.com/questions/3053833/using-r-to-download-zipped-data-file-extract-and-import-data
+- http://gastonsanchez.com/got-plot/how-to/2013/02/02/Arc-Diagrams-in-R-Les-Miserables/
+- https://d3js.org/
+
+
+```{r init-example, message = FALSE}
+library(dplyr)
+library(tidyr)
+library(igraph)
+library(networkD3)
+
+# Use igraph to make the graph and find membership
+temp <- tempfile()
+Sys.sleep(1)  # Needs a pause to set up temp file
+download.file("http://www-personal.umich.edu/~mejn/netdata/lesmis.zip", temp)
+d <- read_graph(unz(temp, "lesmis.gml"), format = "gml")
+unlink(temp)
+
+# Convert to object suitable for networkD3
+wc <- cluster_walktrap(d)
+members <- membership(wc)
+d3d <- igraph_to_networkD3(d, group = members)
+# get node names
+d3d$nodes <- d3d$nodes %>% mutate(
+  name = get.vertex.attribute(d, "label"),
+  id = 0:(n() - 1)
+)
+
+# Get number of times each character appears at all (Number Per Character).
+npc <- d3d$links %>% 
+  mutate(row_id = 1:n()) %>% 
+  gather(key = "role", value = id, source, target) %>% 
+  group_by(id) %>% 
+  summarise(n = sum(value))
+
+# Join to node information
+d3d$nodes <- d3d$nodes %>% left_join(npc)
+
+# Create force directed network plot
+forceNetwork(Links = d3d$links, Nodes = d3d$nodes, 
+             Source = 'source', Target = 'target', 
+             Value = "value",
+             NodeID = 'name', Group = 'group',
+             Nodesize = "n", 
+             opacity = .8, fontSize = 20, linkDistance = 100)
+
+# Using a smaller network (of only the most frequently appearing characters)
+d3d$nodes <- d3d$nodes %>%
+               filter(n > quantile(n, .9)) %>% 
+               mutate(idn = 0:(n() - 1))
+
+d3d$links <- d3d$links %>% 
+              mutate(row_id = 1:n()) %>% 
+              gather(key = role, value = id, source, target) %>%
+              semi_join(d3d$nodes) %>% 
+              left_join(select(d3d$nodes, id, idn)) %>% 
+              select(-id) %>% 
+              spread(role, idn) %>% 
+              filter(!(is.na(source) | is.na(target)))
+              
+
+forceNetwork(Links = d3d$links, Nodes = d3d$nodes, 
+             Source = 'source', Target = 'target', 
+             Value = "value",
+             NodeID = 'name', Group = 'group',
+             Nodesize = "n", 
+             opacity = .8, fontSize = 20, linkDistance = 150)
+
+```
+
+
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).

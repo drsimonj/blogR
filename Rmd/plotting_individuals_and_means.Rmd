@@ -88,6 +88,8 @@ ggplot(id, aes(x = year, y = life_expectancy, color = continent)) +
 
 I find these sorts of plots to be incredibly useful for visualizing and gaining insight into our data. We often visualize group means only, sometimes with the likes of standard errors bars. Alternatively, we plot only the individual observations using histograms or scatter plots. Separately, these two methods have unique problems. For example, we can't easily see sample sizes or variability with group means, and we can't easily see underlying patterns or trends in individual observations. But when individual observations and group means are combined into a single plot, we can produce some powerful visualizations.
 
+A quick note that, after publishing this post, the paper, ["Modern graphical methods to compare two groups of observations" (Rousselet, Pernet, and Wilcox, 2016)](https://figshare.com/articles/Modern_graphical_methods_to_compare_two_groups_of_observations/4055970) was brought to my attention by [Guillaume Rousselet](https://twitter.com/robustgar/status/791656466004475904), who kindly agreed to the reference being posted here. This paper is an excellent resource that goes into some very important details that motivate the work presented here, and it shows some really great plot examples (with R code!). Do take the time to read it if you get the chance.
+
 ## General approach
 
 Below is generic pseudo-code capturing the approach that we'll cover in this post. Following this will be some worked examples of diving deeper into each component.
