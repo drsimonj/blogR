@@ -407,7 +407,7 @@ mtcars %>%
     )
 ```
 
-This is a really nice step up from simple bars, as we get information about quantiles, skew, and outliers, as well as the means.
+This is a really nice alternative as we get information about quantiles, skew, and outliers.
 
 ## Sign off
 
