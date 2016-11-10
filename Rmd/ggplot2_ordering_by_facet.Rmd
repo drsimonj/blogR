@@ -1,0 +1,260 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE, message = F, warning = F}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.align = "center"
+)
+
+# Set up for example plots
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(tidytext)
+library(janeaustenr)
+
+# 5.1 Tokenizing by n-gram
+austen_bigrams <- austen_books() %>%
+  unnest_tokens(bigram, text, token = "ngrams", n = 2)
+
+# 5.1.1 Counting and filtering n-grams
+bigrams_separated <- austen_bigrams %>%
+  separate(bigram, c("word1", "word2"), sep = " ")
+
+
+# 5.1.3 Using bigrams to provide context in sentiment analysis
+AFINN <- get_sentiments("afinn")
+negation_words <- c("not", "no", "never", "without")
+
+negated_words <- bigrams_separated %>%
+  filter(word1 %in% negation_words) %>%
+  inner_join(AFINN, by = c(word2 = "word")) %>%
+  count(word1, word2, score, sort = TRUE) %>%
+  ungroup()
+```
+
+[\@drsimonj](https://twitter.com/drsimonj) here to share my method for ordering categories within facets to create a plots that look like this...
+
+```{r echo = F, message = F, warning = F}
+pd <- negated_words %>%
+  mutate(contribution = n * score) %>%
+  mutate(word2 = reorder(word2, contribution)) %>%
+  group_by(word1) %>%
+  top_n(10, abs(contribution)) %>% 
+  # Extra variable for ordering along x-axis
+  ungroup() %>% 
+  arrange(word1, contribution) %>% 
+  mutate(order = row_number())
+
+ggplot(pd, aes(order, contribution, fill = n * score > 0)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  facet_wrap(~ word1, scales = "free") +
+  xlab("Words preceded by negation") +
+  ylab("Sentiment score * # of occurrences") +
+  theme_bw() +
+  # Add words to axis
+  scale_x_continuous(
+    breaks = pd$order,
+    labels = pd$word2,
+    expand = c(0,0)
+  ) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))
+```
+
+instead of like this...
+
+```{r, echo = F, message = F, warning = F}
+negated_words %>%
+  mutate(contribution = n * score) %>%
+  mutate(word2 = reorder(word2, contribution)) %>%
+  group_by(word1) %>%
+  top_n(10, abs(contribution)) %>%
+  ggplot(aes(word2, contribution, fill = n * score > 0)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  facet_wrap(~ word1, scales = "free") +
+  xlab("Words preceded by negation") +
+  ylab("Sentiment score * # of occurrences") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))
+```
+
+## Motivation: [Tidy Text Mining in R](http://tidytextmining.com/)
+
+The motivation for this post comes from [Tidy Text Mining in R](http://tidytextmining.com/) by [Julia Silge](https://twitter.com/juliasilge) and [David Robinson](https://twitter.com/drob). It is a **must read** if text mining is something that interests you.
+
+I noticed that Julia and David had left themselves a "TODO" in [Chapter 5](http://tidytextmining.com/ngrams.html#tokenizing-by-n-gram) that was  "not easy to fix."
+
+<center><image src="http://2.bp.blogspot.com/-LR1wMBLTLpg/UQ80vU88nbI/AAAAAAAAah4/eAETFs5Zoso/s1600/Koala-Bear-Crop-400x285.jpg" /></center><br/>
+
+I know koala, could Julia Silge and David Robinson really face challenges like the rest of us?!
+
+Well, it was probably just a matter of time, but I thought it was an interesting challenge. So I gave it some thought and wanted to share my solution.
+
+## The problem
+
+The problem is that they were using [ggplot2](https://cran.r-project.org/web/packages/ggplot2/index.html) to create a bar plot with the following features:
+
+- Facetted into separate panels
+- One bar for each category (words in their case).
+- Each bar category (words) can appear in one or more facet panels with different bar heights.
+
+The problem, as you might recognize, is that varying bar heights for categories that appear in multiple facet panels makes it difficult to order the bars. Some facet-specific ordering must take place, but how to do this?!
+
+Here, we're going to roughly replicate the plot that presents this problem and then consider a potential solution.
+
+## The problem plot
+
+Using code from the book, the following roughly reproduces the problematic plot presented in [Chapter 5](http://tidytextmining.com/ngrams.html#tokenizing-by-n-gram) of [Tidy Text Mining in R](http://tidytextmining.com/):
+
+```{r, warning = F, message = F}
+# Required libraries
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(tidytext)
+library(janeaustenr)
+
+# From section 5.1: Tokenizing by n-gram
+austen_bigrams <- austen_books() %>%
+  unnest_tokens(bigram, text, token = "ngrams", n = 2)
+
+# From section 5.1.1: Counting and filtering n-grams
+bigrams_separated <- austen_bigrams %>%
+  separate(bigram, c("word1", "word2"), sep = " ")
+
+
+# From section 5.1.3: Using bigrams to provide context in sentiment analysis
+AFINN <- get_sentiments("afinn")
+negation_words <- c("not", "no", "never", "without")
+
+negated_words <- bigrams_separated %>%
+  filter(word1 %in% negation_words) %>%
+  inner_join(AFINN, by = c(word2 = "word")) %>%
+  count(word1, word2, score, sort = TRUE) %>%
+  ungroup()
+
+# Create plot
+negated_words %>%
+  mutate(contribution = n * score) %>%
+  mutate(word2 = reorder(word2, contribution)) %>%
+  group_by(word1) %>%
+  top_n(10, abs(contribution)) %>%
+  ggplot(aes(word2, contribution, fill = n * score > 0)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  facet_wrap(~ word1, scales = "free") +
+  xlab("Words preceded by negation") +
+  ylab("Sentiment score * # of occurrences") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))
+```
+
+This plot shows the words that are influencing the sentiment analysis of Jane Austen’s books, but frequently preceded with the negation words "never," "no," "not," or "without." For example, Julia and David make the following conclusion based on the "not" facet:
+
+> The bigrams “not like” and “not help” were overwhelmingly the largest causes of misidentification, making the text seem much more positive than it is.
+
+While the content is fascinating, our challenge is more general: to fix the ordering of the bars within each facet.
+
+## How to order within facets
+
+When the data is prepared for plotting (code repeated below), the use of `reorder` is doing some ordering for us, but doesn't produce a perfect result because of the facetting problem. 
+
+```{r, eval = F}
+negated_words %>%
+  mutate(contribution = n * score) %>%
+  # ----- >
+  # This line does some reordering
+  # but not perfect
+  mutate(word2 = reorder(word2, contribution)) %>%
+  # < -----
+  group_by(word1) %>%
+  top_n(10, abs(contribution))
+```
+
+My first temptation was to try arranging the data within facets as a grouped data frame. However, this didn't get me very far.
+
+Instead, we can order the entire data set as follows:
+
+1. `ungroup` the data.
+2. `arrange` the data by:
+    1. The variable for facet groups (`word1`)
+    2. The variable for bar heights (`contribution`)
+3. Keep track of this new arrangement with an `order` column of the `row_number`.
+
+Let's do this and save the results:
+
+```{r}
+# Plot Data Frame
+pd <- negated_words %>%
+  mutate(contribution = n * score) %>%
+  group_by(word1) %>%
+  top_n(10, abs(contribution)) %>% 
+  # 1. Remove grouping
+  ungroup() %>%
+  # 2. Arrange by
+  #   i.  facet group
+  #   ii. bar height
+  arrange(word1, contribution) %>%
+  # 3. Add order column of row numbers
+  mutate(order = row_number())
+
+pd
+```
+
+This orders the entire data frame, but also orders the categories (words) **within** each facet group!
+
+To  demonstrate, let's plot the results with `order` on the x-axis and without freeing the facet scales:
+
+```{r, warning = F}
+ggplot(pd, aes(order, contribution, fill = n * score > 0)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  facet_wrap(~ word1) +
+  xlab("Words preceded by negation") +
+  ylab("Sentiment score * # of occurrences") +
+  theme_bw()
+```
+
+See how we've accurately ordered the bars within each facet. The only thing is that the "starting point" is not 1 (except for the first facet). By freeing the scales again, we can properly focus each facet.
+
+```{r, warning = F}
+ggplot(pd, aes(order, contribution, fill = n * score > 0)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  # Free the scales here
+  facet_wrap(~ word1, scales = "free") +
+  xlab("Words preceded by negation") +
+  ylab("Sentiment score * # of occurrences") +
+  theme_bw()
+```
+
+## Adding categories to the axis
+
+The last piece of the puzzle is to replace the numeric values on each x-axis with the appropriate word. We can do this using `scale_x_continuous` to replace the `order` number with the corresponding category (`word2`) in the row. `theme` adjustments are made to position the text appropriately.
+
+```{r, warning = F}
+ggplot(pd, aes(order, contribution, fill = n * score > 0)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  facet_wrap(~ word1, scales = "free") +
+  xlab("Words preceded by negation") +
+  ylab("Sentiment score * # of occurrences") +
+  theme_bw() +
+  # Add categories to axis
+  scale_x_continuous(
+    breaks = pd$order,
+    labels = pd$word2,
+    expand = c(0,0)
+  ) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))
+```
+
+Et voilà!
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
