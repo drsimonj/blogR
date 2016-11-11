@@ -19,83 +19,146 @@ The package author, [David Robinson](https://twitter.com/drob), describes broom 
 
 > The broom package takes the messy output of built-in functions in R, such as lm, nls, or t.test, and turns them into tidy data frames. 
 
-I first heard about [broom](https://cran.r-project.org/web/packages/broom/index.html) while putting together new driving stations in my VR simulation labs. I was fortunate to have the useR! 2016 conference streaming from Stanford in the background when David gave his presentation. After that, broom instantly became a must-have in my tidyverse toolbox!
+I first heard about [broom](https://cran.r-project.org/web/packages/broom/index.html) while putting together driving stations in my VR simulation labs. I was fortunate to have the useR! 2016 conference streaming from Stanford in the background when David gave his presentation. After that, broom instantly became a must-have in my tidyverse toolbox!
 
-If you're unfamiliar with broom, I suggest having a quick look at its [GitHub page](https://github.com/tidyverse/broom). Relevant here, broom tries to provide three functions for certain statistical models: `tidy`, `augment`, and `glance`.
+If you're unfamiliar with broom, I suggest reading its [GitHub page](https://github.com/tidyverse/broom). Relevant here, broom provides one or more of three functions for statistical models: `tidy`, `augment`, and `glance`.
 
-## Factor Analysis tidiers
+## Untidy Factor Analysis
 
 I noticed that broom did not support factor analysis models generated via `factanal`. So, I'm proud to say that I've contributed to broom by including `tidy`, `augment`, and `glance`, methods that work with `factanal` objects. Below are some examples that demonstrate each of these methods.
 
-For each, let's run a 3-factor model on the `mtcars` data set. Make sure to obtain factor scores using the `scores` argument:
+For each, let's run a 3-factor model on the `mtcars` data, making sure to obtain factor scores using the `scores` argument:
 
 ```{r}
-mod <- factanal(mtcars, 3, scores = "regression")
+mod <- factanal(mtcars, factors = 3, scores = "regression")
 ```
 
-Like many of the model functions in R, `factanal` returns apretty messy result:
+Like many base model functions, `factanal` returns a messy result:
 
 ```{r}
+library(broom)
 mod
 ```
 
 Let's examine how to make our lives easier with the new methods included in broom.
 
-## tidy
+## glance
 
-`tidy` will summarise in a data frame the uniqueness and factor loadings of each variable used in the analysis:
-
-```{r}
-library(broom)
-tidy(mod)
-```
-
-This makes it easy to do things like visualise the variables that were not well accounted for by the analysis via the `uniqueness` values:
+`glance` will return a one-row data frame of the model statistics.
 
 ```{r}
-library(dplyr)
-library(ggplot2)
-
-tidy_data <- tidy(mod)
-ggplot(tidy_data, aes(x = variable, y = uniqueness)) +
-  geom_bar(stat = "identity") +
-  coord_flip()
+glance(mod)
 ```
 
+Using the [purrr](https://cran.r-project.org/web/packages/purrr/index.html) package, it's easy to bind such results for many analyses using different numbers of factors into a single tidy data frame:
 
-Following the example included in the documentation provided for this method (`?tidy.factanal`) will generate the following plot:
+```{r}
+library(purrr)
 
-```{r, echo = F, message = F}
-library(dplyr)
+nfac <- map(1:4, ~ factanal(mtcars, .)) %>% 
+          map_df(glance)
+nfac
+```
+
+With some additional help from [tidyr](https://cran.r-project.org/web/packages/tidyr/index.html) and [ggplot](https://cran.r-project.org/web/packages/ggplot2/index.html), we can visualise changes in the `total.variance` accounted for by the factors, and the `p.value` of each analysis:
+
+```{r}
 library(tidyr)
 library(ggplot2)
 
-tidy(mod) %>% 
-    select(-uniqueness) %>% 
-    gather(factor, loading, -variable) %>% 
-    mutate(factor = gsub("fl", "", factor),
-           sign = ifelse(sign(loading) == 1, "b", "a"),
-           loading = abs(loading)) %>% 
-    group_by(factor) %>% 
-    arrange(factor, desc(loading)) %>% 
-    mutate(order = 1:n()) %>% 
-    ungroup() %>% 
-    ggplot(aes(x = factor, y = loading, group = order)) +
-    geom_bar(aes(fill = sign, alpha = loading),
-             stat = "identity", position = "dodge", color = "black",
-             show.legend = FALSE) +
-    geom_text(aes(label = variable, group = order),
-              position = position_dodge(width = 0.9),
-              size = 3.5, angle = 45, hjust = -.4) +
-    scale_fill_brewer(palette = "Set1") +
+nfac %>% 
+  gather(var, val, total.variance, p.value) %>% 
+  ggplot(aes(x = n.factors, y = val, linetype = var)) +
+  geom_hline(yintercept = .05, alpha = .4, linetype = 10) +
+    geom_line() +
+    geom_point(size = 4) +
     theme_bw() +
-    labs(
-        x = "Factor",
-        y = "Loading",
-        title = "Positive (blue) and negative (red) factor loadings of all variables"
-    )
+    labs(x = "Number of Factors",
+         y = NULL,
+         linetype = NULL) +
+    scale_y_continuous(limits = c(0, 1))
 ```
 
+Going from 1 to 2 factors substantially improves the proportion of variance accounted for, but additional factors result in relatively minor gains. However, the estimated covariance matrix remains significantly different from the observed covariance matrix until 3 factors are included. It seems that a 2 or 3 factor model is most parsimonious in this instance.
+
+## tidy
+
+`tidy` will summarise in a data frame the uniqueness and factor loadings of each variable used in the analysis. Using our 3-factor model:
+
+```{r}
+tidy(mod)
+```
+
+We can visualise how well the variables were accounted for by the analysis via the `uniqueness` values:
+
+```{r, message = F}
+library(dplyr)
+
+tidy_data <- tidy(mod)
+
+tidy_data %>% 
+  mutate(variable = reorder(variable, uniqueness)) %>% 
+  ggplot(aes(x = variable, y = uniqueness)) +
+    geom_bar(stat = "identity") +
+    coord_flip()
+```
+
+It appears that `drat` (the rear axle ratio), `vs` (engine shape), and `am` (transmission type), and the worst accounted for variables, with each having a uniqueness value over .2 (i.e., less than 80% of the variance is accounted for).
+
+We can visualise how each factor is defined as follows:
+
+```{r, message = F, fig.height=3}
+library(dplyr)
+
+# Plot data frame
+pd <- tidy_data %>% 
+  select(-uniqueness) %>% 
+  gather(factor, loading, -variable) %>% 
+  mutate(factor = gsub("fl", "", factor),
+           sign = ifelse(sign(loading) == 1, "positive", "negative"),
+           loading = abs(loading)) %>% 
+  arrange(factor, desc(loading)) %>% 
+  mutate(order = 1:n())
+
+# Plot
+ggplot(pd, aes(x = order, y = loading)) +
+  geom_bar(aes(fill = sign), stat = "identity") +
+  facet_wrap(~ factor, scale = "free_x") +
+  theme_bw() +
+  scale_x_continuous(
+    breaks = pd$order,
+    labels = pd$variable,
+    expand = c(0,0)
+  ) +
+  scale_y_continuous(
+    expand = c(0,0),
+    limits = c(0, 1)
+  ) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5)) +
+  labs(
+    x = NULL,
+    fill = NULL,
+    title = "Loadings on each factor"
+  )
+```
+
+The first factor is defined by most variables except `vs`, `hp`, `qsec`, and `carb`. These four strongly load on the second factor, however. I won't continue, but am sure you will get the point.
+
+## augment
+
+Finally, `augment` returns a data frame of the factor scores for each of the original observations. Using `augment` requires that factor scores were computed by the model using the `scores` argument (as we did earlier).
+
+```{r}
+augment(mod) %>% head()
+```
+
+We can bind these factor scores to the original data by passing it to the `data` argument of `augment`.
+
+```{r}
+augment(mod, data = mtcars) %>% head()
+```
+
+Happy  tidying!
 
 ## Sign off
 
