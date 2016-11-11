@@ -86,11 +86,11 @@ negated_words %>%
 
 The motivation for this post comes from [Tidy Text Mining in R](http://tidytextmining.com/) by [Julia Silge](https://twitter.com/juliasilge) and [David Robinson](https://twitter.com/drob). It is a **must read** if text mining is something that interests you.
 
-I noticed that Julia and David had left themselves a "TODO" in [Chapter 5](http://tidytextmining.com/ngrams.html#tokenizing-by-n-gram) that was  "not easy to fix."
+I noticed that Julia and David had left themselves a "TODO" in [Chapter 5](http://tidytextmining.com/ngrams.html#tokenizing-by-n-gram) that was  "not easy to fix." Not easy to fix? Could Julia Silge and David Robinson face challenges as the rest of us do?!
 
 <center><image src="http://2.bp.blogspot.com/-LR1wMBLTLpg/UQ80vU88nbI/AAAAAAAAah4/eAETFs5Zoso/s1600/Koala-Bear-Crop-400x285.jpg" /></center><br/>
 
-I know, koala; it is shocking. Could Julia Silge and David Robinson face challenges as the rest of us do?!
+Shocking, I know. 
 
 Well, it was probably just a matter of time until they fixed it. Still, I thought it was an interesting challenge; gave it some thought, and wanted to share my solution.
 
