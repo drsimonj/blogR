@@ -37,7 +37,7 @@ negated_words <- bigrams_separated %>%
   ungroup()
 ```
 
-[\@drsimonj](https://twitter.com/drsimonj) here to share my method for ordering categories within facets to create a plots that look like this...
+[\@drsimonj](https://twitter.com/drsimonj) here to share my method for ordering categories within facets to create plots that look like this...
 
 ```{r echo = F, message = F, warning = F}
 pd <- negated_words %>%
@@ -90,19 +90,19 @@ I noticed that Julia and David had left themselves a "TODO" in [Chapter 5](http:
 
 <center><image src="http://2.bp.blogspot.com/-LR1wMBLTLpg/UQ80vU88nbI/AAAAAAAAah4/eAETFs5Zoso/s1600/Koala-Bear-Crop-400x285.jpg" /></center><br/>
 
-I know koala, could Julia Silge and David Robinson really face challenges like the rest of us?!
+I know, koala; it is shocking. Could Julia Silge and David Robinson face challenges as the rest of us do?!
 
-Well, it was probably just a matter of time, but I thought it was an interesting challenge. So I gave it some thought and wanted to share my solution.
+Well, it was probably just a matter of time until they fixed it. Still, I thought it was an interesting challenge; gave it some thought, and wanted to share my solution.
 
 ## The problem
 
-The problem is that they were using [ggplot2](https://cran.r-project.org/web/packages/ggplot2/index.html) to create a bar plot with the following features:
+They were using [ggplot2](https://cran.r-project.org/web/packages/ggplot2/index.html) to create a bar plot with the following features:
 
 - Facetted into separate panels
 - One bar for each category (words in their case).
 - Each bar category (words) can appear in one or more facet panels with different bar heights.
 
-The problem, as you might recognize, is that varying bar heights for categories that appear in multiple facet panels makes it difficult to order the bars. Some facet-specific ordering must take place, but how to do this?!
+The problem, as you might recognize, is that varying bar heights for categories that appear in multiple facet panels makes it difficult to order the bars. Some within-facet ordering must take place, but how to do this?
 
 Here, we're going to roughly replicate the plot that presents this problem and then consider a potential solution.
 
@@ -152,7 +152,7 @@ negated_words %>%
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))
 ```
 
-This plot shows the words that are influencing the sentiment analysis of Jane Austen’s books, but frequently preceded with the negation words "never," "no," "not," or "without." For example, Julia and David make the following conclusion based on the "not" facet:
+This plot shows the words that are influencing the sentiment analysis of Jane Austen’s books but frequently preceded with the negation words "never," "no," "not," or "without." For example, Julia and David make the following conclusion based on the "not" facet:
 
 > The bigrams “not like” and “not help” were overwhelmingly the largest causes of misidentification, making the text seem much more positive than it is.
 
@@ -174,7 +174,7 @@ negated_words %>%
   top_n(10, abs(contribution))
 ```
 
-My first temptation was to try arranging the data within facets as a grouped data frame. However, this didn't get me very far.
+To overcome this, my first temptation was to try arranging the data within facets as a grouped data frame. However, this didn't get me very far.
 
 Instead, we can order the entire data set as follows:
 
