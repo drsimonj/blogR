@@ -253,9 +253,9 @@ Et voilà!
 
 ## TODO
 
-Before publishing this post, I sent a draft to Julia and David for comments. First, my sincerest thanks to them for taking the time to read it!
+Before publishing this post, I sent a draft to Julia and David for comments. My sincerest thanks to them for taking the time to read it!
 
-David also made the great suggestion to encapsulate this method into a function or add a new "stat" option to `geom_bar` to handle this automatically. I'll be opening an issue about this on the [ggplot2 GitHub page](https://github.com/tidyverse/ggplot2/issues) and playing around the see what works best.
+David also made the great suggestion to encapsulate this method into a function or add a new "stat" option to `geom_bar` to handle this automatically. I'll be opening an issue about this on the [ggplot2 GitHub page](https://github.com/tidyverse/ggplot2/issues) and playing around to see what works best.
 
 How good is open source :)
 
