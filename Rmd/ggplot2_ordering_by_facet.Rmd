@@ -233,7 +233,7 @@ ggplot(pd, aes(order, contribution, fill = n * score > 0)) +
 
 ## Adding categories to the axis
 
-The last piece of the puzzle is to replace the numeric values on each x-axis with the appropriate word. We can do this using `scale_x_continuous` to replace the `order` number with the corresponding category (`word2`) in the row. `theme` adjustments are made to position the text appropriately.
+The last piece of the puzzle is to replace the numeric values on each x-axis with the appropriate word. We can do this using `scale_x_continuous` to replace the `order` number with the corresponding category (`word2`) in the row. Aside, we're controlling the x-axis, but the words appear on the y-axis because we're using `coord_flip`.
 
 ```{r, warning = F}
 ggplot(pd, aes(order, contribution, fill = n * score > 0)) +
