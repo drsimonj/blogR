@@ -1,0 +1,172 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.height = 3,
+  fig.width = 4,
+  fig.align = "center"
+)
+```
+
+[\@drsimonj](https://twitter.com/drsimonj) here to discuss how to conduct k-fold cross validation with models that are supported by [David Robinson's](http://varianceexplained.org/) [broom](https://cran.r-project.org/web/packages/broom/index.html) package. I was motivated to write this after reading [David's post on this topic](http://rpubs.com/dgrtwo/cv-modelr) some time ago, but I wanted to unpack it a little more detail.
+
+## Assumed knowledge: K-fold Cross validation
+
+This post assumes you know what k-fold cross validation is. However, if you want to brush up, here's a [wonderful tutorial from  Stanford University professors Trevor Hastie and Rob Tibshirani](https://www.youtube.com/watch?v=nZAM5OXrktY).
+
+## Creating folds
+
+Before worrying about models, we can generate our K folds using `crossv_kfold` from the [modelr](https://cran.r-project.org/web/packages/modelr/index.html) package. Let's try it out with the `mtcars` data to keep things simple.
+
+```{r}
+library(modelr)
+set.seed(1)  # Run to replicate this post
+folds <- crossv_kfold(mtcars, k = 5)
+folds
+```
+
+This function takes a data frame and randomly partitions it's rows (1 to `r nrow(mtcars)` for `mtcars`) into `k` roughly equal groups. We've partitioned the row numbers into `k = 5` groups. The results are returned as a tibble (data frame) like the one above.
+
+Each cell in the `test` column contains a `resample` object, which is an efficient way of referencing a subset of rows in a data frame (`?resample` to learn more). We can think of each cell as a reference to rows of the data frame that have been put into the five partitions. For example, the following tells us that the first partition of the data references rows *`r folds$test[[1]]$idx`*, which accounts for roughly `1 / k` of the total data set (`r length(folds$test[[1]]$idx)` of the `r nrow(mtcars)` rows).
+
+```{r}
+folds$test[[1]]
+```
+
+Each cell in `train` also contains a `resample` object, but referencing the rows in all other partitions. For example, the first `train` object references all rows NOT referenced by the first `test` object:
+
+```{r}
+folds$train[[1]]
+```
+
+We can now run a model on the data referenced by each `train` object, and validate the model results on each correpsonding partition contained in `test`!
+
+## Fitting models to training data
+
+Let's say that we're interested in predicting Miles Per Gallon (`mpg`) with all other variables. With the whole data set, we'd do this via:
+
+```{r, eval = FALSE}
+lm(mpg ~ ., data = mtcars)
+```
+
+Instead, we want to run this model on each set of trianing data (data referenced in each `train` cell). We can do this as follows:
+
+```{r, message = F}
+library(dplyr)
+library(purrr)
+
+folds <- folds %>% mutate(model = map(train, ~ lm(mpg ~ ., data = .)))
+folds
+```
+
+- `mutate(model = ...)` is adding the new column, `model`.
+- `map(train, ...)` is applying a function to each of the cells in `train`
+- `~ lm(...)` is the regression model being applied to each `train` cell.
+- `data = .` specifies that the data for the regression model will be the data referenced by each `train` object.
+
+The result is a new `model` column containing fitted regression models based on each of the `train` data (i.e., the whole data set excluding each partition).
+
+For example, the model fitted to our first set of training data is:
+
+```{r}
+folds$model[[1]] %>% summary()
+```
+
+## Predicting the test data
+
+The next step is use each model to predict the outcome variable in the corresponding `test` data. There are many ways to achieve this. One general method might be to start with:
+
+```{r, eval = FALSE}
+folds %>% mutate(predicted = map2(model, test, <FUNCTION_TO_PREDICT_TEST_DATA> ))
+```
+
+`map2(model, test, ...)` iterates through each model and set of test data in parallel. By referencing these in the function for predicting the test data, this would add a `predicted` column with the predicted results.
+
+In many circumstances, an elegant solution is to use `augment` from [broom](https://cran.r-project.org/web/packages/broom/index.html). For regression, `augment` will take a fitted model and a new data frame, and produce a data frame of the predicted results. This is exactly what we want! Following above, we can use `augment` as follows:
+
+```{r, message = F}
+library(broom)
+
+folds %>% mutate(predicted = map2(model, test, ~ augment(.x, newdata = .y)))
+```
+
+But we need to extract the relevant information from these predicted results. To do this, we'll `unnest` these data frames thanks to the [tidyr](https://cran.r-project.org/web/packages/tidyr/index.html) package:
+
+
+```{r, message = F}
+library(tidyr)
+
+folds %>%
+  mutate(predicted = map2(model, test, ~ augment(.x, newdata = .y))) %>% 
+  unnest(predicted)
+```
+
+This was to show you the intermediate steps, but we can actually skip the `mutate` step:
+
+```{r}
+predicted <- folds %>% unnest(map2(model, test, ~ augment(.x, newdata = .y)))
+predicted
+```
+
+## Validating the model
+
+The `predicted` data frame above combines the `test` data (from each partition) as well as the `.fitted`, or predicted values. This makes it possible to evaluate how well our models predicted the true values.
+
+We can calculate the overall proportion of variance accounted for as follows:
+
+```{r}
+predicted %>%
+  summarise(
+    sst = sum((mpg - mean(mpg)) ^ 2), # Sum of Squares Total
+    sse = sum((mpg - .fitted) ^ 2),   # Sum of Squares Error
+    r.squared = 1 - sse / sst         # Proportion of variance accounted for
+    )
+```
+
+So, across the folds, the regression model using all variables can predicted about 61% of the variance in new `mpg` data.
+
+We might also want to group these estimates by partition to get a feel for the variability of these estimates, and plot the results with [ggplot2](https://cran.r-project.org/web/packages/ggplot2/index.html):
+
+```{r, message = F}
+library(ggplot2)
+
+predicted %>%
+  group_by(.id) %>%   # Group by partition
+  summarise(
+    sst = sum((mpg - mean(mpg)) ^ 2),
+    sse = sum((mpg - .fitted) ^ 2),
+    r.squared = 1 - sse / sst
+    ) %>% 
+  ggplot(aes(r.squared, fill  = .id)) + geom_histogram()
+```
+
+Hmm, the model performed well on average, but it still performed poorly in some instances!
+
+## All at once
+
+With all this new knowledge, we can do something similar to the `k = 20` case shown in [David's post](http://rpubs.com/dgrtwo/cv-modelr). See that you can understand what's going on here:
+
+```{r}
+# set.seed(1)
+# ggplot2::mpg %>% # Using the mpg data set
+#   crossv_kfold(k = 10) %>% 
+#   mutate(xx = map(train, ~ lm(hwy ~ ., data = .))) %>% 
+#   mutate(zz = map2(xx, test, ~ augment(.x, newdata = .y)))
+
+```
+
+
+
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
