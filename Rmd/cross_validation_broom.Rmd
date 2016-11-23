@@ -13,15 +13,15 @@ knitr::opts_chunk$set(
 )
 ```
 
-[\@drsimonj](https://twitter.com/drsimonj) here to discuss how to conduct k-fold cross validation with models that are supported by [David Robinson's](http://varianceexplained.org/) [broom](https://cran.r-project.org/web/packages/broom/index.html) package. I was motivated to write this after reading [David's post on this topic](http://rpubs.com/dgrtwo/cv-modelr) some time ago, but I wanted to unpack it a little more detail.
+[\@drsimonj](https://twitter.com/drsimonj) here to discuss how to conduct k-fold cross validation, with an emphasis on evaluating models supported by [David Robinson's](http://varianceexplained.org/) [broom](https://cran.r-project.org/web/packages/broom/index.html) package. Full credit also goes to David, as this is a slightly more detailed version of [his past post](http://rpubs.com/dgrtwo/cv-modelr), which I read some time ago and felt like unpacking.
 
 ## Assumed knowledge: K-fold Cross validation
 
-This post assumes you know what k-fold cross validation is. However, if you want to brush up, here's a [wonderful tutorial from  Stanford University professors Trevor Hastie and Rob Tibshirani](https://www.youtube.com/watch?v=nZAM5OXrktY).
+This post assumes you know what k-fold cross validation is. If you want to brush up, here's a [fantastic tutorial from  Stanford University professors Trevor Hastie and Rob Tibshirani](https://www.youtube.com/watch?v=nZAM5OXrktY).
 
 ## Creating folds
 
-Before worrying about models, we can generate our K folds using `crossv_kfold` from the [modelr](https://cran.r-project.org/web/packages/modelr/index.html) package. Let's try it out with the `mtcars` data to keep things simple.
+Before worrying about models, we can generate K folds using `crossv_kfold` from the [modelr](https://cran.r-project.org/web/packages/modelr/index.html) package. Let's practice with the `mtcars` data to keep things simple.
 
 ```{r}
 library(modelr)
@@ -32,29 +32,29 @@ folds
 
 This function takes a data frame and randomly partitions it's rows (1 to `r nrow(mtcars)` for `mtcars`) into `k` roughly equal groups. We've partitioned the row numbers into `k = 5` groups. The results are returned as a tibble (data frame) like the one above.
 
-Each cell in the `test` column contains a `resample` object, which is an efficient way of referencing a subset of rows in a data frame (`?resample` to learn more). We can think of each cell as a reference to rows of the data frame that have been put into the five partitions. For example, the following tells us that the first partition of the data references rows *`r folds$test[[1]]$idx`*, which accounts for roughly `1 / k` of the total data set (`r length(folds$test[[1]]$idx)` of the `r nrow(mtcars)` rows).
+Each cell in the `test` column contains a `resample` object, which is an efficient way of referencing a subset of rows in a data frame (`?resample` to learn more). Think of each cell as a reference to the rows of the data frame belonging to each partition. For example, the following tells us that the first partition of the data references rows *`r folds$test[[1]]$idx`*, which accounts for roughly `1 / k` of the total data set (`r length(folds$test[[1]]$idx)` of the `r nrow(mtcars)` rows).
 
 ```{r}
 folds$test[[1]]
 ```
 
-Each cell in `train` also contains a `resample` object, but referencing the rows in all other partitions. For example, the first `train` object references all rows NOT referenced by the first `test` object:
+Each cell in `train` also contains a `resample` object, but referencing the rows in all other partitions. For example, the first `train` object references all rows **except** *`r folds$test[[1]]$idx`*:
 
 ```{r}
 folds$train[[1]]
 ```
 
-We can now run a model on the data referenced by each `train` object, and validate the model results on each correpsonding partition contained in `test`!
+We can now run a model on the data referenced by each `train` object, and validate the model results on each corresponding partition in `test`.
 
 ## Fitting models to training data
 
-Let's say that we're interested in predicting Miles Per Gallon (`mpg`) with all other variables. With the whole data set, we'd do this via:
+Say we're interested in predicting Miles Per Gallon (`mpg`) with all other variables. With the whole data set, we'd do this via:
 
 ```{r, eval = FALSE}
 lm(mpg ~ ., data = mtcars)
 ```
 
-Instead, we want to run this model on each set of trianing data (data referenced in each `train` cell). We can do this as follows:
+Instead, we want to run this model on each set of training data (data referenced in each `train` cell). We can do this as follows:
 
 ```{r, message = F}
 library(dplyr)
@@ -64,9 +64,9 @@ folds <- folds %>% mutate(model = map(train, ~ lm(mpg ~ ., data = .)))
 folds
 ```
 
-- `mutate(model = ...)` is adding the new column, `model`.
+- `folds %>% mutate(model = ...)` is adding a new `model` column to the folds tibble.
 - `map(train, ...)` is applying a function to each of the cells in `train`
-- `~ lm(...)` is the regression model being applied to each `train` cell.
+- `~ lm(...)` is the regression model applied to each `train` cell.
 - `data = .` specifies that the data for the regression model will be the data referenced by each `train` object.
 
 The result is a new `model` column containing fitted regression models based on each of the `train` data (i.e., the whole data set excluding each partition).
@@ -79,15 +79,15 @@ folds$model[[1]] %>% summary()
 
 ## Predicting the test data
 
-The next step is use each model to predict the outcome variable in the corresponding `test` data. There are many ways to achieve this. One general method might be to start with:
+The next step is to use each model for predicting the outcome variable in the corresponding `test` data. There are many ways to achieve this. One general approach might be:
 
 ```{r, eval = FALSE}
 folds %>% mutate(predicted = map2(model, test, <FUNCTION_TO_PREDICT_TEST_DATA> ))
 ```
 
-`map2(model, test, ...)` iterates through each model and set of test data in parallel. By referencing these in the function for predicting the test data, this would add a `predicted` column with the predicted results.
+`map2(model, test, ...)` iterates through each model and set of `test` data in parallel. By referencing these in the function for predicting the test data, this would add a `predicted` column with the predicted results.
 
-In many circumstances, an elegant solution is to use `augment` from [broom](https://cran.r-project.org/web/packages/broom/index.html). For regression, `augment` will take a fitted model and a new data frame, and produce a data frame of the predicted results. This is exactly what we want! Following above, we can use `augment` as follows:
+For many common models, an elegant alternative is to use `augment` from [broom](https://cran.r-project.org/web/packages/broom/index.html). For regression, `augment` will take a fitted model and a new data frame, and return a data frame of the predicted results, which is what we want! Following above, we can use `augment` as follows:
 
 ```{r, message = F}
 library(broom)
@@ -95,8 +95,7 @@ library(broom)
 folds %>% mutate(predicted = map2(model, test, ~ augment(.x, newdata = .y)))
 ```
 
-But we need to extract the relevant information from these predicted results. To do this, we'll `unnest` these data frames thanks to the [tidyr](https://cran.r-project.org/web/packages/tidyr/index.html) package:
-
+To extract the relevant information from these `predicted` results, we'll `unnest` the data frames thanks to the [tidyr](https://cran.r-project.org/web/packages/tidyr/index.html) package:
 
 ```{r, message = F}
 library(tidyr)
@@ -106,62 +105,93 @@ folds %>%
   unnest(predicted)
 ```
 
-This was to show you the intermediate steps, but we can actually skip the `mutate` step:
+This was to show you the intermediate steps. In practice we can skip the `mutate` step:
 
 ```{r}
 predicted <- folds %>% unnest(map2(model, test, ~ augment(.x, newdata = .y)))
 predicted
 ```
 
+We now have a tibble of the `test` data for each fold (`.id` = fold number) and the corresponding `.fitted`, or predicted values for the outcome variable (`mpg`) in each case.
+
 ## Validating the model
 
-The `predicted` data frame above combines the `test` data (from each partition) as well as the `.fitted`, or predicted values. This makes it possible to evaluate how well our models predicted the true values.
-
-We can calculate the overall proportion of variance accounted for as follows:
+We can compute and examine the residuals:
 
 ```{r}
+# Compute the residuals
+predicted <- predicted %>% 
+  mutate(residual = .fitted - mpg)
+
+# Plot actual v residual values
+# coloured by fold
+library(ggplot2)
 predicted %>%
+  ggplot(aes(mpg, residual)) +
+    geom_hline(yintercept = 0) +
+    geom_point() +
+    stat_smooth(method = "loess") +
+    theme_minimal()
+```
+
+It looks like our models could be overestimating `mpg` around 20-30 and underestimating higher `mpg`. But there are clearly fewer data points, making prediction difficult.
+
+We can also use these values to calculate the overall proportion of variance accounted for by each model:
+
+```{r}
+rs <- predicted %>%
+  group_by(.id) %>% 
   summarise(
     sst = sum((mpg - mean(mpg)) ^ 2), # Sum of Squares Total
-    sse = sum((mpg - .fitted) ^ 2),   # Sum of Squares Error
+    sse = sum(residual ^ 2),          # Sum of Squares Residual/Error
     r.squared = 1 - sse / sst         # Proportion of variance accounted for
     )
+rs
+
+# Overall
+mean(rs$r.squared)
 ```
 
-So, across the folds, the regression model using all variables can predicted about 61% of the variance in new `mpg` data.
+So, across the folds, the regression models have accounted for an average of `r round(mean(rs$r.squared) * 100, 2)`% of the variance of `mpg` in new, test data.
 
-We might also want to group these estimates by partition to get a feel for the variability of these estimates, and plot the results with [ggplot2](https://cran.r-project.org/web/packages/ggplot2/index.html):
+Plotting these results:
 
 ```{r, message = F}
-library(ggplot2)
-
-predicted %>%
-  group_by(.id) %>%   # Group by partition
-  summarise(
-    sst = sum((mpg - mean(mpg)) ^ 2),
-    sse = sum((mpg - .fitted) ^ 2),
-    r.squared = 1 - sse / sst
-    ) %>% 
-  ggplot(aes(r.squared, fill  = .id)) + geom_histogram()
+rs %>% 
+  ggplot(aes(r.squared, fill  = .id)) +
+    geom_histogram() +
+    geom_vline(aes(xintercept = mean(r.squared)))  # Overall mean
 ```
 
-Hmm, the model performed well on average, but it still performed poorly in some instances!
+Although the model performed well on average, it performed pretty poorly when fold 1 was used as test data.
 
 ## All at once
 
-With all this new knowledge, we can do something similar to the `k = 20` case shown in [David's post](http://rpubs.com/dgrtwo/cv-modelr). See that you can understand what's going on here:
+With this new knowledge, we can do something similar to the `k = 20` case shown in [David's post](http://rpubs.com/dgrtwo/cv-modelr). See that you can understand what's going on here:
 
 ```{r}
-# set.seed(1)
-# ggplot2::mpg %>% # Using the mpg data set
-#   crossv_kfold(k = 10) %>% 
-#   mutate(xx = map(train, ~ lm(hwy ~ ., data = .))) %>% 
-#   mutate(zz = map2(xx, test, ~ augment(.x, newdata = .y)))
-
+set.seed(1)
+# Select four variables from the mpg data set in ggplot2
+ggplot2::mpg %>% select(year, cyl, drv, hwy) %>% 
+  # Create 20 folds (5% of the data in each partition)
+  crossv_kfold(k = 20) %>%
+  # Fit a model to training data
+  mutate(model = map(train, ~ lm(hwy ~ ., data = .))) %>%
+  # Unnest predicted values on test data
+  unnest(map2(model, test, ~ augment(.x, newdata = .y))) %>% 
+  # Compute R-squared values for each partition
+  group_by(.id) %>%
+  summarise(
+    sst = sum((hwy - mean(hwy)) ^ 2),
+    sse = sum((hwy - .fitted) ^ 2),
+    r.squared = 1 - sse / sst
+  ) %>% 
+  # Plot
+  ggplot(aes(r.squared)) +
+    geom_density() +
+    geom_vline(aes(xintercept = mean(r.squared))) +
+    theme_minimal()
 ```
-
-
-
 
 ## Sign off
 
