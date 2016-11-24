@@ -44,6 +44,27 @@ Each cell in `train` also contains a `resample` object, but referencing the rows
 folds$train[[1]]
 ```
 
+Here's a plot of how the rows have been partitioned:
+
+```{r, echo = F, message = F, fig.height = 5}
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(ggplot2)
+folds %>%
+  mutate(test = map(test, ~ .$idx)) %>% 
+  unnest(test) %>% 
+  mutate(test = as.factor(test))  %>% 
+  ggplot(aes(x = .id, y = test, fill = .id)) +
+    order_as(y ~ x) +  # NOTE this is a development feature
+    geom_tile(show.legend = F) +
+    theme_minimal() +
+  labs(
+    x = "Partition number",
+    y = "Row number"
+  )
+```
+
 We can now run a model on the data referenced by each `train` object, and validate the model results on each corresponding partition in `test`.
 
 ## Fitting models to training data
