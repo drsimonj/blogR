@@ -1,0 +1,338 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.align = "center"
+)
+```
+
+[\@drsimonj](https://twitter.com/drsimonj) here to explain how I used [ubeR](https://github.com/DataWookie/ubeR), an R package for the Uber API, to create this map of my trips over the last couple of years:
+
+```{r init-example, message = FALSE, echo = F, warning = F}
+library(ubeR)
+library(tidyverse)
+
+# This can't be run within RMarkdown.
+#
+# UBER_CLIENTID <- "XyXDcKSLKoVauGjc2fVfIZaKcitAOAzi"
+# UBER_CLIENTSECRET <- "mgh6PZwyeFnuOMtQV7Pmu2tYk8QogApj30yFf05K"
+# uber_oauth(UBER_CLIENTID, UBER_CLIENTSECRET)
+#
+#rides <- map_df(0:3, ~ uber_history(50, 50 * .))
+#
+# Instead, I ran it in a different project, saved the rides object, and put it
+# in Rmd/ directory here to load
+trips <- readRDS("trips.rds")
+
+city_trips <- trips %>% 
+  group_by(display_name) %>% 
+  summarise(
+    n = n(),
+    long = mean(longitude),
+    lat = mean(latitude)
+  )
+
+travel_paths <- trips %>% 
+  # Find the from-to travel paths
+  select(display_name) %>% 
+  rename(from = display_name) %>% 
+  mutate(to = lag(from)) %>% 
+  filter(from != to) %>% 
+  filter(!duplicated(.)) %>% 
+  # Add coords for from city
+  left_join(select(city_trips, -n), by = c("from" = "display_name")) %>% 
+  rename(x = long, y = lat) %>% 
+  # Add coords for to city
+  left_join(select(city_trips, -n), by = c("to" = "display_name")) %>% 
+  rename(xend = long, yend = lat)
+
+long_min <- 120
+long_max <- 300
+
+world_map <- map_data(map = "world")
+
+local_map <- world_map %>% 
+  mutate(long = long + 360,
+         group = group + max(group) + 1) %>% 
+  rbind(world_map)
+
+local_trips <- city_trips %>% 
+  mutate(long = long + 360) %>% 
+  rbind(city_trips)
+
+local_paths <- travel_paths %>% 
+  mutate(x = x + 360,
+         xend = xend + 360) %>% 
+  rbind(travel_paths) %>% 
+  group_by(from, to) %>% 
+  summarise(
+    x = x[between(x, long_min, long_max)],
+    xend = xend[between(xend, long_min, long_max)],
+    y = y[1],
+    yend = yend[1]
+  )
+
+ggplot(local_trips, aes(long, lat)) +
+  geom_map(data = local_map, map = local_map,
+           aes(map_id = region, x = long, y = lat),
+           fill = "gray93", color = "gray85") +
+  geom_curve(data = local_paths, color = "dodgerblue1",
+             aes(x = x, y = y, xend = xend, yend = yend),
+             arrow = arrow(angle = 20, type = "closed", length = unit(.18, "inches"))) +
+  ggrepel::geom_text_repel(aes(label = display_name), force = 10, color = "black") +
+  geom_point(aes(size = n), color = "dodgerblue3") +
+  guides(size = "none", color = "none", alpha = "none") +
+  coord_equal() +
+  scale_x_continuous(limits = c(long_min, long_max)) +
+  scale_y_continuous(limits = c(-50, 60)) +
+  theme_void()
+```
+
+## Getting ubeR
+
+The ubeR package, which I first heard about [here](https://www.r-bloggers.com/uber-a-package-for-the-uber-api/), is currently available on GitHub. In R, install and load it as follows:
+
+```{r, eval = F}
+# install.packages("devtools")  # Run to install the devtools package if needed
+devtools::install_github("DataWookie/ubeR")  # Install ubeR
+library(ubeR)
+```
+
+For this post I also use many of the tidyverse packages, so install and load this too to follow along:
+
+```{r}
+library(tidyverse)
+```
+
+## Setting up an app
+
+To use ubeR and the uber API, you'll need an uber account and to register a new app. In a web browser, log into your uber account and head to [this page](https://developer.uber.com/dashboard/create). Fill in the details. Here's an example:
+
+<< IMG OF REGISTER >>
+
+Once created, under the *Authorization* tab, set the *Redirect URL* to http://localhost:1410/
+
+<< IMG OF REDIRECT >>
+
+Further down, under *General Scopes*, enable "profile" and "history":
+
+<< IMG OF SCOPES >>
+
+Back under the *settings* tab, under *Authentication*, take note of the "Client ID" and "Client Secret":
+
+<< IMG OF AUTHENTICATION >>
+
+In your R session, save these values as two variables:
+
+```{r, eval = F}
+UBER_CLIENTID <- "<< Your App's Client ID >>"
+UBER_CLIENTSECRET <- "<< Your App's Client Secret >>"
+```
+
+## Using ubeR
+
+Back in R, run the following:
+
+```{r, eval = F}
+uber_oauth(UBER_CLIENTID, UBER_CLIENTSECRET)
+```
+
+A web page will open asking you to log in to your uber account and permit the app to access your data. It will then say:
+
+> Authentication complete. Please close this page and return to R.
+
+We can now access our uber data via the R functions that access the uber API. For example `uber_me()` returns a vector of information contained in your profile.
+
+```{r, eval = F}
+me <- uber_me()
+```
+```{r, echo = F}
+# Run above in R project and save variable as RDS so we can use it in this
+# RMarkdown
+me <- readRDS("me.rds")
+```
+```{r}
+names(me)
+
+cat("My uber profile name is", me$first_name, me$last_name)
+```
+
+## Accessing trip history
+
+The function `uber_history` will return a data frame of portions of your trip history. As far as I can tell, you can extract up to 50 trips at a time. You can use `uber_history` to return one chunk of up to 50 trips. Alternatively, the following will read all of your trips into a data frame:
+
+```{r, eval = F}
+trips <- data.frame()
+more_trips <- TRUE
+off_set <- 0
+while(more_trips) {
+  new_trips <- uber_history(50, 50 * off_set)
+  if (is.null(new_trips)) {
+    more_trips <- FALSE
+  } else {
+    trips <- rbind(trips, new_trips)
+    off_set <- off_set + 1
+  }
+}
+```
+```{r, echo = F}
+# Read from saved rds
+trips <- readRDS("trips.rds")
+```
+```{r}
+trips %>% 
+  mutate(longitude = "xx", latitude = "yy") %>%  # Just to hide values
+  head
+
+# How many trips have I taken?
+nrow(trips)
+
+# Time and place of my first trip
+trips %>% 
+  filter(start_time == min(start_time)) %>% 
+  select(start_time, display_name)
+```
+
+## Getting the data into shape
+
+For the map shown at the beginning, I created two data frames from my trip history:
+
+- A data frame of how many trips I'd taken in each city, as well as an estimate of the city longitude and latitude. 
+- A data frame of transitions from one city to another, along with their longitudes and latitudes.
+
+### Trips per city
+
+Calculating the trips per city is pretty straight forward. Given that we're using a world map, we can average the longitude and latitude for each city to get a good-enough position.
+
+```{r}
+city_trips <- trips %>% 
+  group_by(display_name) %>% 
+  summarise(
+    n = n(),
+    long = mean(longitude),
+    lat = mean(latitude)
+  )
+city_trips
+```
+
+### City-to-city travel paths
+
+The data comes with dates and is ordered from most recent to oldest. We can use this to approximately work out which cities I've gone from and to.
+
+To get my travel paths, we find all occasions where the city for one trip doesn't match the city for the next trip. We then use the longitude and latitude from `city_trips` to create `x`, `y`, `xend`, and `yend` for the paths that we'll draw on the map.
+
+```{r}
+travel_paths <- trips %>% 
+  # Find the from-to travel paths
+  select(display_name) %>% 
+  rename(from = display_name) %>% 
+  mutate(to = lag(from)) %>% 
+  filter(from != to) %>% 
+  filter(!duplicated(.)) %>% 
+  # Add coords for from city
+  left_join(select(city_trips, -n), by = c("from" = "display_name")) %>% 
+  rename(x = long, y = lat) %>% 
+  # Add coords for to city
+  left_join(select(city_trips, -n), by = c("to" = "display_name")) %>% 
+  rename(xend = long, yend = lat)
+
+travel_paths
+```
+
+## Plotting on the map (first attempt)
+
+The following overlays the data onto the default map with the size of the points for each city determined by the number of trips I've taken there:
+
+```{r, warning = F}
+library(ggrepel)
+
+world_map <-  map_data(map = "world")
+
+ggplot(city_trips, aes(long, lat)) +
+  # Plot map
+  geom_map(data = world_map, map = world_map,
+           aes(map_id = region, x = long, y = lat),
+           fill = "gray93", color = "gray85") +
+  # Plot travel paths
+  geom_curve(data = travel_paths, color = "dodgerblue1",
+             aes(x = x, y = y, xend = xend, yend = yend),
+             arrow = arrow(angle = 20, type = "closed", length = unit(.18, "inches"))) +
+  # Plot city names
+  geom_text_repel(aes(label = display_name), force = 20, color = "black", size = 2.5) +
+  # Plot city points 
+  geom_point(aes(size = n), color = "dodgerblue3") +
+  # Adjustments
+  guides(size = "none", color = "none", alpha = "none") +
+  coord_equal() +
+  theme_void()
+```
+
+This is pretty good! However, I live in Australia, and I've only used uber internationally in the US.
+
+## Plotting on a localized map
+
+To display my trip information a little more clearly, the following creates a local version of the map:
+
+```{r, warning = F}
+long_min <- 120
+long_max <- 300
+
+local_map <- world_map %>% 
+  mutate(long = long + 360,
+         group = group + max(group) + 1) %>% 
+  rbind(world_map)
+
+local_trips <- city_trips %>% 
+  mutate(long = long + 360) %>% 
+  rbind(city_trips)
+
+local_paths <- travel_paths %>% 
+  mutate(x = x + 360,
+         xend = xend + 360) %>% 
+  rbind(travel_paths) %>% 
+  group_by(from, to) %>% 
+  summarise(
+    x = x[between(x, long_min, long_max)],
+    xend = xend[between(xend, long_min, long_max)],
+    y = y[1],
+    yend = yend[1]
+  )
+
+ggplot(local_trips, aes(long, lat)) +
+  geom_map(data = local_map, map = local_map,
+           aes(map_id = region, x = long, y = lat),
+           fill = "gray93", color = "gray85") +
+  geom_curve(data = local_paths, color = "dodgerblue1",
+             aes(x = x, y = y, xend = xend, yend = yend),
+             arrow = arrow(angle = 20, type = "closed", length = unit(.18, "inches"))) +
+  ggrepel::geom_text_repel(aes(label = display_name), force = 10, color = "black") +
+  geom_point(aes(size = n), color = "dodgerblue3") +
+  guides(size = "none", color = "none", alpha = "none") +
+  coord_equal() +
+  scale_x_continuous(limits = c(long_min, long_max)) +
+  scale_y_continuous(limits = c(-50, 60)) +
+  theme_void()
+```
+
+A brief explanation of my trips:
+
+- I live in Sydney, Australia, so most of my uber trips are there.
+- I frequently travel to Melbourne to visit family.
+- I often work in Adelaide, but usually hire a car, so don't use uber much while I'm there.
+- I did a summer internship at ETS in Princeton, so that included my trip through New Jersey and Philadelphia.
+- After finishing my Ph.D. I took a trip around the US, which involved Dallas, Miami, New Orleans, and -- my inner nerd couldn't resist -- a conference in Chicago before coming home.
+
+It's not a complete travel history, but pretty cool to see just through my use of uber!
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
