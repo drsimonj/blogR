@@ -60,7 +60,7 @@ We don't want a model like this, as it almost certainly has overfitting problems
 
 ## Training-Test Split
 
-To help validated our hyperparameter combinations, we'll split our data into training and test sets (in an 80/20 split):
+To help validate our hyperparameter combinations, we'll split our data into training and test sets (in an 80/20 split):
 
 ```{r}
 set.seed(245)
