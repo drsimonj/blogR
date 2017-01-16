@@ -13,7 +13,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-[@drsimonj](https://twitter.com/drsimonj) here to share my big takeaways from [rstudio::conf](https://www.rstudio.com/conference/), held 2017 in Kissimmee, Florida. My aim here is to share the broad data science opinions and challenges that I feel bring together the R community right now, and perhaps offer some guidance to anyone wanting to get into the R community.
+[@drsimonj](https://twitter.com/drsimonj) here to share my big takeaways from [rstudio::conf](https://www.rstudio.com/conference/) 2017. My aim here is to share the broad data science opinions and challenges that I feel bring together the R community right now, and perhaps offer some guidance to anyone wanting to get into the R community.
 
 **DISCLAIMER**: this is based on my experience, my primary interests, the talks I attended, the people I met, etc. I'm also very jet lagged after flying back to Australia! If I've missed something important to you (which I'm sure I have), please comment in whichever medium (Twitter, Facebook, etc.) and get the discussion going!
 
@@ -64,12 +64,12 @@ The R community's current software of choice for version control and collaborati
 
 <img src='https://cdn.meme.am/cache/instances/folder165/400x400/55074165.jpg'>
 
-Data science (whatever that is exactly) is hot and everyone agrees that we should model data in a way that is valid and useful. But the process by which we carry out modelling is still poorly defined and a major challenge when you consider human biases. This was really emphasised by data journalist, [Andrew Flowers](https://twitter.com/andrewflowers).
+Data science is a hot topic and everyone agrees that we should model data in a way that is valid and useful. But the process by which we carry out modeling is still poorly defined and a major challenge when you consider human biases. This was really emphasized by data journalist, [Andrew Flowers](https://twitter.com/andrewflowers).
 
 <blockquote class="twitter-tweet tw-align-center" data-lang="en"><p lang="en" dir="ltr">Six types of data story + their dangers from <a href="https://twitter.com/andrewflowers">@andrewflowers</a> <a href="https://twitter.com/hashtag/rstudioconf?src=hash">#rstudioconf</a> <a href="https://t.co/NKmMT2kQO3">pic.twitter.com/NKmMT2kQO3</a></p>&mdash; Hadley Wickham (@hadleywickham) <a href="https://twitter.com/hadleywickham/status/820283681017364480">January 14, 2017</a></blockquote>
 <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
-Our modelling process needs standardized processes, and tools to support them, to reduce error and maximise the validity of our work. We have a strong foundation. For example, in addition to the topics described above, we have great processes and tools for optimizing code such as [Dirk Eddelbuettel](https://twitter.com/eddelbuettel)'s [Rcpp](http://www.rcpp.org/) or [Winston Chang](https://twitter.com/winston_chang?lang=en)'s [Profvis](https://rstudio.github.io/profvis/). But what do we do when it comes to modeling data?
+Modeling needs standardized processes, and tools to support them, to reduce error and maximize the validity of our work. We have a strong foundation. For example, in addition to the topics described above, we have great processes and tools for optimizing code such as [Dirk Eddelbuettel](https://twitter.com/eddelbuettel)'s [Rcpp](http://www.rcpp.org/) or [Winston Chang](https://twitter.com/winston_chang?lang=en)'s [Profvis](https://rstudio.github.io/profvis/). But what do we do when it comes to modeling data?
 
 The community is gearing up to start tackling this problem. Before the conference, I publicized a new development package, [pipelearner](https://github.com/drsimonj/pipelearner), which is related to this problem. It was great to meet with people who were already testing it out (no doubt thanks to [Mara Averick](https://twitter.com/dataandme) tweeting about it).
 
