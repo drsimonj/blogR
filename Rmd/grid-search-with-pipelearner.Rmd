@@ -1,0 +1,134 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.height = 3,
+  fig.width = 4,
+  fig.align = "center"
+)
+```
+
+[\@drsimonj](https://twitter.com/drsimonj) here to show how you can use the pipelearner package to easily grid-search hyperparameters for a model.
+
+pipelearner is a package for making machine learning piplines and is currently available to install from GitHub by running the following:
+
+```{r init-example, message = FALSE, eval = F}
+# install.packages("devtools")  # Run this if devtools isn't installed
+devtools::install_github("drsimonj/pipelearner")
+library(pipelearner)
+```
+```{r, echo = F}
+library(pipelearner)
+```
+
+In this post we'll try to find the optimal hyperparameters of a decision tree (using the rpart package) for predicting cars' transmission type (automatic or manual) using the mtcars data set. Let's load this package along with tidyverse, which pipelearner is intended to work with:
+
+```{r, message = F}
+library(tidyverse)
+library(rpart)
+```
+
+### The data
+
+Quickly convert our outcome variable to a factor with proper labels:
+
+```{r}
+d <- mtcars %>% 
+  mutate(am = factor(am, labels = c("automatic", "manual")))
+head(d)
+```
+
+## Default hyperparameters
+
+We'll first create a pipelearner object that uses the default hyperparameters of the decision tree.
+
+```{r}
+pl <- d %>% pipelearner(rpart, am ~ .)
+pl
+```
+
+Fit the model with `learn()`:
+
+```{r}
+results <- pl %>% learn()
+results
+```
+
+The fitted results include our single model. Let's assess the model's performance on the training and test sets:
+
+```{r}
+# Function to compute accuracy
+accuracy <- function(fit, data, target_var) {
+  # Coerce `data` to data.frame (needed for resample objects)
+  data <- as.data.frame(data)
+  # Obtain predicted class
+  predicted <- predict(fit, data, type = "class")
+  # Return accuracy
+  mean(predicted == data[[target_var]])
+}
+
+# Training accuracy
+accuracy(results$fit[[1]], results$train[[1]], results$target[[1]])
+
+# Test accuracy
+accuracy(results$fit[[1]], results$test[[1]], results$target[[1]])
+```
+
+Looks like we've achieved `r round(100*accuracy(results$fit[[1]], results$train[[1]], results$target[[1]]))`% accuracy on the training data and `r round(100*accuracy(results$fit[[1]], results$test[[1]], results$target[[1]]))`% accuracy on the test data. Perhaps we can improve on this by tweaking the model's hyperparameters.
+
+## Adding hyperparameters
+
+When using pipelearner, we can add any arguments that the learning function will accept after we provide a formula. For example, run `?rpart` and you'll see that control options can be added. To see these options, run `?rpart.control`.
+
+An obvious choice for decision trees in `minsplit`, which determines "the minimum number of observations that must exist in a node in order for a split to be attempted." By default it's set to 20. Given that we have such a small data set, this seems like a poor choice. We can adjust it as follows:
+
+```{r}
+pl <- d %>% pipelearner(rpart, am ~ ., minsplit = 5)
+results <- pl %>% learn()
+
+# Training accuracy
+accuracy(results$fit[[1]], results$train[[1]], results$target[[1]])
+
+# Test accuracy
+accuracy(results$fit[[1]], results$test[[1]], results$target[[1]])
+```
+
+Reducing `minsplit` will generally increase your training accuracy. Too small, however, and you'll overfit the training data resulting in poorer test accuracy.
+
+## Using vectors
+
+All the model arguments you provide to `pipelearner()` can be vectors. pipelearner will then automatically expand those vectors into a grid and test all combinations. For example, let's try out many values for `minsplit`:
+
+```{r}
+pl <- d %>% pipelearner(rpart, am ~ ., minsplit = c(2, 4, 6, 8, 10))
+results <- pl %>% learn()
+results
+```
+
+Combining `mutate` from dplyr and `map` functions from the purrr package (all loaded with tidyverse), we can extract the relevant information for each value of `minsplit`:
+
+```{r}
+results <- results %>% 
+  mutate(
+    minsplit = map_dbl(params, "minsplit"),
+    accuracy_train = pmap_dbl(list(fit, train, target), accuracy),
+    accuracy_test  = pmap_dbl(list(fit, test,  target), accuracy)
+  )
+
+results %>% select(minsplit, contains("accuracy"))
+```
+
+
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
