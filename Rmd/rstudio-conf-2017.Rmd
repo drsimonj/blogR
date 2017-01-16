@@ -93,7 +93,7 @@ In general, I feel that the best software for being a social R user is [Twitter]
 
 Start to follow other R users, engage with them, and you can always look at other users' lists. E.g., you can check out my [daRk magic](https://twitter.com/drsimonj/lists/dark-magic) list that isolates some of my favorite R tweeters (though it needs some updating). [Stackoverflow](http://stackoverflow.com/) is another great place to get or give R help - but be sure to get a feel for it before diving in if you're new. Of course, emails are also good.
 
-Speaking of emails, here comes my sign off and contact details...
+So speaking of being social, here comes my sign off and contact details...
 
 ## Sign off
 
