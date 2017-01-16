@@ -13,9 +13,9 @@ knitr::opts_chunk$set(
 )
 ```
 
-[\@drsimonj](https://twitter.com/drsimonj) here to share my big takeaways from [rstudio::conf](https://www.rstudio.com/conference/), held 2017 in Kissimmee, Florida. My goal here is to share the broad opinions and challenges that I feel bring together the R community right now, and perhaps offer some guidance to anyone wanting to get into the R community.
+[@drsimonj](https://twitter.com/drsimonj) here to share my big takeaways from [rstudio::conf](https://www.rstudio.com/conference/), held 2017 in Kissimmee, Florida. My aim here is to share the broad data science opinions and challenges that I feel bring together the R community right now, and perhaps offer some guidance to anyone wanting to get into the R community.
 
-**DISCLAIMER**: this is based on my experience, my primary interests, the talks I attended, the people I met, etc. I'm also very jet lagged after flying back to Australia! So please don't read this and think that's all there is. If you think I've missed something critical (which I'm sure I have), please comment in whichever medium (Twitter, Facebook, etc.) and get the discussion going!
+**DISCLAIMER**: this is based on my experience, my primary interests, the talks I attended, the people I met, etc. I'm also very jet lagged after flying back to Australia! If I've missed something important to you (which I'm sure I have), please comment in whichever medium (Twitter, Facebook, etc.) and get the discussion going!
 
 ## My overall experience
 
@@ -31,17 +31,17 @@ I didn't see it's value immediately, but [Hilary Parker](https://twitter.com/hsp
 <blockquote class="twitter-tweet tw-align-center" data-lang="en"><p lang="en" dir="ltr">Here are my slides from <a href="https://twitter.com/hashtag/rstudioconf?src=hash">#rstudioconf</a>: &quot;Opinionated Analysis Development&quot; &amp;/or &quot;Trying to Make Fetch Happen&quot; <a href="https://t.co/TLNrmUzW4M">https://t.co/TLNrmUzW4M</a></p>&mdash; Hilary Parker (@hspter) <a href="https://twitter.com/hspter/status/820354490553552897">January 14, 2017</a></blockquote>
 <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
-To crudely (and probably inaccurately) summarize, Hilary was advocating that we focus on defining opinions about processes (like "we should be using version control") and then push for software that supports them. I liked this idea and will do my best to discuss the conference themes in this way.
+To crudely (and probably inaccurately) summarize, Hilary was advocating that we focus on defining opinions about data science processes (like "we should be using version control") and then push for software that supports them. I liked this idea and will do my best to discuss the conference themes in this way.
 
 In line with Hilary's talk, I think the broad goals driving discussion at the conference include **reducing wasted time, minimizing the chance of human error, and maximizing utility**. As a human factors researcher, this couldn't make me happier!
 
-So, what were some of the broad opinions and challenges that the R community discussed?
+So, what were some of the broad opinions and challenges about data science processes that the R community discussed?
 
 ## Write code for humans
 
-A big theme was how we make our code better for humans. How do we write code that people can instantly understand? This doesn't mean communicating how every function works. Rather, if I share my code with someone, can they easily get a sense of what various chunks are doing? This means less time trying to interpret code and minimizing the chance of making errors along the way.
+A strong opinion is that code should be written for humans. This doesn't mean that we need to communicate how every function works. Rather, if I share my code with someone, can they easily get a sense of what various chunks are doing? This means less time trying to interpret code and minimizing the chance of making errors along the way.
 
-If that is the community's opinion, their software of choice for writing human-friendly code most definitely reside in the [tidyverse](http://tidyverse.org/). It's not just the functions, but it's the philosophy behind the tidyverse that makes them so apt for writing readable code. This was evident from the start when [Hadley Wickham](https://twitter.com/hadleywickham) gave an opening keynote on the topic.
+The R software of choice for writing human-friendly code most definitely includes the [tidyverse](http://tidyverse.org/). It's not just the functions, but it's the philosophy behind the tidyverse that makes it so apt for writing readable code. This was evident from the start when [Hadley Wickham](https://twitter.com/hadleywickham) gave an opening keynote on the topic.
 
 <blockquote class="twitter-tweet tw-align-center" data-lang="en"><p lang="en" dir="ltr">.<a href="https://twitter.com/hadleywickham">@hadleywickham</a> kicking off <a href="https://twitter.com/hashtag/rstudioconf?src=hash">#rstudioconf</a> by talking about the tidyverse: both the packages and the connections between them <a href="https://twitter.com/hashtag/rstats?src=hash">#rstats</a> <a href="https://t.co/r7WztkrFBO">pic.twitter.com/r7WztkrFBO</a></p>&mdash; David Robinson (@drob) <a href="https://twitter.com/drob/status/819908216339525632">January 13, 2017</a></blockquote>
 <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
@@ -53,9 +53,9 @@ The use of the [magrittr](https://github.com/tidyverse/magrittr) package's pipe 
 
 ## Use Version Control
 
-Another big theme surrounding the optimization of time and reduction of errors was to use proper version control. Accurately tracking how our code evolves and being able to share that evolution with others (or our future selves) is critical. Without version control, simple mistakes like mislabelling a file can have devastating consequences.
+Another big opinion surrounding the optimization of time and reduction of errors is that we should be using proper version control. Accurately tracking how our code evolves and being able to share that evolution with others (or our future selves) is critical. Without version control, simple mistakes like mislabelling a file can have devastating consequences. It's also an essential process for working collaboratively.
 
-Without a doubt, the R community's software of choice for version control and sharing/developing code are Git and GitHub. You'll find that most of the top R packages are now hosted on GitHub, which enables good version control as well as an open environment that is easy for multiple people to work in at the same time. [Jenny Bryan](https://twitter.com/JennyBryan) gave a notable tutorial on this topic.
+The R community's current software of choice for version control and collaboratively developing code are Git and GitHub. You'll find that most of the top R packages are now hosted on GitHub, which enables good version control as well as an open environment that is easy for multiple people to work in at the same time. [Jenny Bryan](https://twitter.com/JennyBryan) gave a notable tutorial on this topic.
 
 <blockquote class="twitter-tweet tw-align-center" data-lang="en"><p lang="en" dir="ltr">I&#39;m teaching Git/GitHub today at <a href="https://twitter.com/hashtag/rstudioconf?src=hash">#rstudioconf</a>. I take a lot of inspiration from <a href="https://twitter.com/alicebartlett">@alicebartlett</a>&#39;s &quot;Git for humans&quot; <a href="https://t.co/hwjIvFZHBk">https://t.co/hwjIvFZHBk</a></p>&mdash; Jenny Bryan (@JennyBryan) <a href="https://twitter.com/JennyBryan/status/820255475098849281">January 14, 2017</a></blockquote>
 <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
@@ -64,18 +64,23 @@ Without a doubt, the R community's software of choice for version control and sh
 
 <img src='https://cdn.meme.am/cache/instances/folder165/400x400/55074165.jpg'>
 
-Data science (whatever that is exactly) is *hot*, and everyone agrees that we want to model data in a way that is valid and useful. However, the process by which we do this is still poorly defined. This is an area that needs guidelines or standardized tools and processes to help reduce wasted time and potential error. We have a strong foundation. For example, in addition to the topics described above, we have great processes and tools for optimizing code such as [Dirk Eddelbuettel](https://twitter.com/eddelbuettel)'s [Rcpp](http://www.rcpp.org/) or [Winston Chang](https://twitter.com/winston_chang?lang=en)'s [Profvis](https://rstudio.github.io/profvis/). But what do we do when it comes to modeling data?
+Data science (whatever that is exactly) is hot and everyone agrees that we should model data in a way that is valid and useful. But the process by which we carry out modelling is still poorly defined and a major challenge when you consider human biases. This was really emphasised by data journalist, [Andrew Flowers](https://twitter.com/andrewflowers).
+
+<blockquote class="twitter-tweet tw-align-center" data-lang="en"><p lang="en" dir="ltr">Six types of data story + their dangers from <a href="https://twitter.com/andrewflowers">@andrewflowers</a> <a href="https://twitter.com/hashtag/rstudioconf?src=hash">#rstudioconf</a> <a href="https://t.co/NKmMT2kQO3">pic.twitter.com/NKmMT2kQO3</a></p>&mdash; Hadley Wickham (@hadleywickham) <a href="https://twitter.com/hadleywickham/status/820283681017364480">January 14, 2017</a></blockquote>
+<script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+Our modelling process needs standardized processes, and tools to support them, to reduce error and maximise the validity of our work. We have a strong foundation. For example, in addition to the topics described above, we have great processes and tools for optimizing code such as [Dirk Eddelbuettel](https://twitter.com/eddelbuettel)'s [Rcpp](http://www.rcpp.org/) or [Winston Chang](https://twitter.com/winston_chang?lang=en)'s [Profvis](https://rstudio.github.io/profvis/). But what do we do when it comes to modeling data?
 
 The community is gearing up to start tackling this problem. Before the conference, I publicized a new development package, [pipelearner](https://github.com/drsimonj/pipelearner), which is related to this problem. It was great to meet with people who were already testing it out (no doubt thanks to [Mara Averick](https://twitter.com/dataandme) tweeting about it).
 
 <blockquote class="twitter-tweet tw-align-center" data-lang="en"><p lang="en" dir="ltr">ICYMI, &#39;nother great <a href="https://twitter.com/drsimonj">@drsimonj</a> how-to: “Easy machine learning pipelines with pipelearner” <a href="https://t.co/SS3GDjEHZ1">https://t.co/SS3GDjEHZ1</a> <a href="https://twitter.com/hashtag/rstats?src=hash">#rstats</a> <a href="https://twitter.com/hashtag/machinelearning?src=hash">#machinelearning</a> <a href="https://t.co/5vnTR0kwpG">pic.twitter.com/5vnTR0kwpG</a></p>&mdash; Mara Averick (@dataandme) <a href="https://twitter.com/dataandme/status/819742991858405377">January 13, 2017</a></blockquote>
 <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
-However, pipelearner is far from what we need as a community. An exciting prospect is that [Max Kuhn](https://github.com/topepo), creator of the [caret](http://topepo.github.io/caret/index.html) package, has joined RStudio. We can only hope that he'll be focussing on this problem and we'll be seeing some proper opinions and tools soon.
+As an idea, pipelearner is a start, but it's a long way away from what we'll ultimately need. An exciting prospect is that [Max Kuhn](https://github.com/topepo), creator of the [caret](http://topepo.github.io/caret/index.html) package, has joined RStudio. We can only hope that he'll be focussing on this problem and we'll be seeing some proper opinions and tools soon.
 
-## Visual communication is important
+## Present work in a visual format that is easy and enjoyable to digest
 
-It's not sufficient to do an analysis. You have to present that analysis to someone! That someone could be anything from a fellow data scientist to someone who knows nothing about statistics or programming! To this end, the community opinion seems to be that we should always be presenting our workflow and findings in a visual format that is easy and enjoyable for people digest. To me, *enjoyable* is an important aspect. The details of data science work can be boring to most people. Presenting information so that people want to engage with it can make a big difference.
+Another broadly held opinion is that we should present our work in a visual format that is easy and enjoyable to digest. This doesn't just mean creating good plots with ggplot2, but synthesising entire reports or documents that can be easily understood. It's not sufficient to do an analysis because you always have to present that analysis to someone! That someone could be a fellow data scientist or a manager who knows nothing about statistics or programming. To me, *enjoyable* is an important aspect. The details of data science work can be boring to most people. Presenting information so that people want to engage with it can make a big difference.
 
 The software tools of choice here are [R Markdown](http://R Markdown.rstudio.com/) and [Shiny](https://shiny.rstudio.com/). Shiny is the go-to for interactivity. R Markdown is fast becoming the base for almost all top R visualization/communication formats, so I'd recommend starting to learn it before Shiny. With advances in tools like [R Notebooks](http://rmarkdown.rstudio.com/r_notebooks.html), many people are already creating their scripts in R Markdown-based documents that can be instantly converted to visually appealing formats. There were many great talks on these topics such as:
 
@@ -84,7 +89,7 @@ The software tools of choice here are [R Markdown](http://R Markdown.rstudio.com
 
 ## Be social
 
-Being social is strongly valued by this community. This doesn't always get directly discussed, but it's something we all seem to share implicitly. The first meaning of "social" here is to be engaged with other community members. This can be sharing your content or, if you don't have content to share, liking, commenting, or otherwise engaging with the content that people do share. Keeping connected like this helps the R community to develop fast. When package errors are found, or challenging problems come up, these penetrate into the community and are often resolved incredibly quickly. The other meaning of "social" is to be friendly and supportive. More advanced community members are happy to help those in need, making a move into the R community a pleasant experience for newcomers (I can speak to this point directly). Expecting friendly dialect makes people more likely to share their work and problems. Overall, I think that some of the growing success of R can be attributed to the value that the R community places on being social.
+Being social is strongly valued by this community. This doesn't always get directly discussed, but it is something we all seem to share implicitly. The first meaning of "social" here is to be engaged with other community members. This can be sharing your content or, if you don't have content to share, liking, commenting, or otherwise engaging with the content that people do share. Keeping connected like this helps the R community to develop fast. When package errors are found, or challenging problems come up, these penetrate into the community and are often resolved incredibly quickly. The other meaning of "social" is to be friendly and supportive. More advanced community members are happy to help those in need, making a move into the R community a pleasant experience for newcomers (I can speak to this point directly). Expecting friendly dialect makes people more likely to share their work and problems. Overall, I think that some of the growing success of R can be attributed to the value that the R community places on being social.
 
 In general, I feel that the best software for being a social R user is [Twitter](https://twitter.com). For example, my lightning talk on corrr got considerable attention outside the room as soon as [David Robinson](https://twitter.com/drob) tweeted about it.
 
