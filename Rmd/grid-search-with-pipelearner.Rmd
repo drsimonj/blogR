@@ -13,7 +13,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-[\@drsimonj](https://twitter.com/drsimonj) here to show how you can use the pipelearner package to easily grid-search hyperparameters for a model.
+[\@drsimonj](https://twitter.com/drsimonj) here to show you how to use pipelearner to easily grid-search hyperparameters for a model.
 
 pipelearner is a package for making machine learning piplines and is currently available to install from GitHub by running the following:
 
@@ -26,7 +26,7 @@ library(pipelearner)
 library(pipelearner)
 ```
 
-In this post we'll try to find the optimal hyperparameters of a decision tree (using the rpart package) for predicting cars' transmission type (automatic or manual) using the mtcars data set. Let's load this package along with tidyverse, which pipelearner is intended to work with:
+In this post we'll grid search hyperparameters of a decision tree (using the rpart package) predicting cars' transmission type (automatic or manual) using the mtcars data set. Let's load rpart along with tidyverse, which pipelearner is intended to work with:
 
 ```{r, message = F}
 library(tidyverse)
@@ -83,7 +83,7 @@ Looks like we've achieved `r round(100*accuracy(results$fit[[1]], results$train[
 
 ## Adding hyperparameters
 
-When using pipelearner, we can add any arguments that the learning function will accept after we provide a formula. For example, run `?rpart` and you'll see that control options can be added. To see these options, run `?rpart.control`.
+When using pipelearner, you can add any arguments that the learning function will accept after we provide a formula. For example, run `?rpart` and you'll see that control options can be added. To see these options, run `?rpart.control`.
 
 An obvious choice for decision trees in `minsplit`, which determines "the minimum number of observations that must exist in a node in order for a split to be attempted." By default it's set to 20. Given that we have such a small data set, this seems like a poor choice. We can adjust it as follows:
 
@@ -123,7 +123,49 @@ results <- results %>%
 results %>% select(minsplit, contains("accuracy"))
 ```
 
+This applies to as many hyperparameters as you care to add. For example, let's grid search combinations of values for `minsplit`, `maxdepth`, and `xval`:
 
+```{r}
+pl <- d %>% pipelearner(rpart, am ~ .,
+                        minsplit = c(2, 20),
+                        maxdepth = c(2, 5),
+                        xval     = c(5, 10))
+pl %>%
+  learn()%>% 
+  mutate(
+    minsplit = map_dbl(params, "minsplit"),
+    maxdepth = map_dbl(params, "maxdepth"),
+    xval     = map_dbl(params, "xval"),
+    accuracy_train = pmap_dbl(list(fit, train, target), accuracy),
+    accuracy_test  = pmap_dbl(list(fit, test,  target), accuracy)
+  ) %>%
+  select(minsplit, maxdepth, xval, contains("accuracy"))
+```
+
+Not much variance in the accuracy, but it demonstrates how you can use this in your own work.
+
+## Using train_models()
+
+A bonus tip for those of you how are comfortable so far: you can use `learn_models()` to isolate multiple grid searches. For example:
+
+```{r}
+pl <- d %>%
+  pipelearner() %>% 
+  learn_models(rpart, am ~ ., minsplit = c(1, 2), maxdepth = c(4, 5)) %>% 
+  learn_models(rpart, am ~ ., minsplit = c(6, 7), maxdepth = c(1, 2))
+  
+pl %>%
+  learn()%>% 
+  mutate(
+    minsplit = map_dbl(params, "minsplit"),
+    maxdepth = map_dbl(params, "maxdepth"),
+    accuracy_train = pmap_dbl(list(fit, train, target), accuracy),
+    accuracy_test  = pmap_dbl(list(fit, test,  target), accuracy)
+  ) %>%
+  select(minsplit, maxdepth, contains("accuracy"))
+```
+
+Notice the separate grid searches for `minsplit = c(1, 2), maxdepth = c(4, 5)` and `minsplit = c(6, 7), maxdepth = c(1, 2)`. This is because grid search is applied separately for each model defined by a `learn_models()` call. This means you can separate various hyperparameters combinations if you want to.
 
 ## Sign off
 
