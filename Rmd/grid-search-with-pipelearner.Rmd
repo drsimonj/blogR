@@ -85,7 +85,7 @@ Looks like we've achieved `r round(100*accuracy(results$fit[[1]], results$train[
 
 When using pipelearner, you can add any arguments that the learning function will accept after we provide a formula. For example, run `?rpart` and you'll see that control options can be added. To see these options, run `?rpart.control`.
 
-An obvious choice for decision trees in `minsplit`, which determines "the minimum number of observations that must exist in a node in order for a split to be attempted." By default it's set to 20. Given that we have such a small data set, this seems like a poor choice. We can adjust it as follows:
+An obvious choice for decision trees is `minsplit`, which determines "the minimum number of observations that must exist in a node in order for a split to be attempted." By default it's set to 20. Given that we have such a small data set, this seems like a poor choice. We can adjust it as follows:
 
 ```{r}
 pl <- d %>% pipelearner(rpart, am ~ ., minsplit = 5)
