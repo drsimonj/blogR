@@ -13,13 +13,201 @@ knitr::opts_chunk$set(
 )
 ```
 
-[\@drsimonj](https://twitter.com/drsimonj) here to 
+[\@drsimonj](https://twitter.com/drsimonj) here to show you how to use xgboost (extreme gradient boosting) models in pipelearner.
 
-```{r init-example, message = FALSE}
+## Why a post on xgboost and pipelearner?
 
+xgboost is one of the most powerful machine-learning libraries, so there's a good reason to use it. pipelearner helps to create machine-learning pipelines that make it easy to do cross-fold validation, hyperparameter grid searching, and more. So bringing them together will make for an awesome combination!
+
+The only problem - out of the box, xgboost doesn't play nice with pipelearner. Let's work out how to deal with this.
+
+## Setup
+
+To follow this post you'll need the following packages:
+
+```{r eval = F}
+# Install (if necessary)
+install.packages(c("xgboost", "tidyverse", "devtools"))
+devtools::install_github("drsimonj/pipelearner")
+
+# Attach
+library(tidyverse)
+library(xgboost)
+library(pipelearner)
+library(lazyeval)
+```
+```{r, echo = F, message = F, warning = F}
+library(tidyverse)
+library(xgboost)
+library(pipelearner)
+library(lazyeval)
 ```
 
+Our example will be to try and predict whether tumours are cancerous or not using the [Breast Cancer Wisconsin (Diagnostic) Data Set](https://archive.ics.uci.edu/ml/datasets/Breast+Cancer+Wisconsin+(Diagnostic)). Set up as follows:
 
+```{r, message = F}
+data_url <- 'https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/breast-cancer-wisconsin.data'
+
+d <- read_csv(
+  data_url,
+  col_names = c('id', 'thinkness', 'size_uniformity',
+                'shape_uniformity', 'adhesion', 'epith_size',
+                'nuclei', 'chromatin', 'nucleoli', 'mitoses', 'cancer')) %>% 
+  select(-id) %>%            # Remove id; not useful here
+  filter(nuclei != '?') %>%  # Remove records with missing data
+  mutate(cancer = cancer == 4) %>% # one-hot encode 'cancer' as 1=malignant;0=benign
+  mutate_all(as.numeric)     # All to numeric; needed for XGBoost
+
+d
+```
+
+## pipelearner
+
+pipelearner makes it easy to do lots of routine machine learning tasks, many of which you can check out [in this post](https://drsimonj.svbtle.com/easy-machine-learning-pipelines-with-pipelearner-intro-and-call-for-contributors). For this example, we'll use pipelearner to perform a grid search of some xgboost hyperparameters.
+
+Grid searching is easy with pipelearner. For detailed instructions, check out my previous post: [tidy grid search with pipelearner](https://drsimonj.svbtle.com/how-to-grid-search-with-pipelearner). As a quick reminder, we declare a data frame, machine learning function, formula, and hyperparameters as vectors. Here's an example that would grid search multiple values of `minsplit` and `maxdepth` for an rpart decision tree:
+
+```{r, eval = F}
+pipelearner(d, rpart::rpart, cancer ~ .,
+            minsplit = c(2, 4, 6, 8, 10),
+            maxdepth = c(2, 3, 4, 5))
+```
+
+The challenge for xgboost:
+
+> pipelearner expects a model function that has two arguments: `data` and `formula`
+
+## xgboost
+
+Here's an xgboost model:
+
+```{r, message = F}
+# Prep data (X) and labels (y)
+X <- select(d, -cancer) %>% as.matrix()
+y <- d$cancer
+
+# Fit the model
+fit <- xgboost(X, y, nrounds = 5, objective = "reg:logistic")
+
+# Examine accuracy
+predicted <- as.numeric(predict(fit, X) >= .5)
+mean(predicted == y)
+```
+
+Look like we have a model with `r round(mean(predicted == y) * 100, 2)`% accuracy on the training data!
+
+Regardless, notice that first two arguments to xgboost() are a numeric data matrix and a numeric label vector. This is not what pipelearner wants!
+
+## Wrapper function to parse `data` and `formula`
+
+To make xgboost compatible with pipelearner we need to write a wrapper function that accepts `data` and `formula`, and uses these to pass a feature matrix and label vector to `xgboost`:
+
+```{r}
+pl_xgboost <- function(data, formula, ...) {
+  data <- as.data.frame(data)
+  
+  X_names <- as.character(f_rhs(formula))
+  y_name  <- as.character(f_lhs(formula))
+  
+  if (X_names == '.') {
+    X_names <- names(data)[names(data) != y_name]
+  }
+  
+  X <- data.matrix(data[, X_names])
+  y <- data[[y_name]]
+
+  xgboost(data = X, label = y, ...)
+}
+```
+
+Let's try it out:
+
+```{r}
+pl_fit <- pl_xgboost(d, cancer ~ ., nrounds = 5, objective = "reg:logistic")
+
+# Examine accuracy
+pl_predicted <- as.numeric(predict(pl_fit, as.matrix(select(d, -cancer))) >= .5)
+mean(pl_predicted == y)
+```
+
+Perfect!
+
+## Bringing it all together
+
+We can now use `pipelearner` and `pl_xgboost()` for easy grid searching:
+
+```{r}
+pl <- pipelearner(d, pl_xgboost, cancer ~ .,
+                  nrounds = c(5, 10, 25),
+                  eta = c(.1, .3),
+                  max_depth = c(4, 6))
+
+fits <- pl %>% learn()
+fits
+```
+
+Looks like all the models learned OK. Let's write a custom function to extract model accuracy and examine the results:
+
+```{r}
+accuracy <- function(fit, data, target_var) {
+  # Convert resample object to data frame
+  data <- as.data.frame(data)
+  # Get feature matrix and labels
+  X <- data %>%
+    select(-matches(target_var)) %>% 
+    as.matrix()
+  y <- data[[target_var]]
+  # Obtain predicted class
+  y_hat <- as.numeric(predict(fit, X) > .5)
+  # Return accuracy
+  mean(y_hat == y)
+}
+
+results <- fits %>% 
+  mutate(
+    # hyperparameters
+    nrounds   = map_dbl(params, "nrounds"),
+    eta       = map_dbl(params, "eta"),
+    max_depth = map_dbl(params, "max_depth"),
+    # Accuracy
+    accuracy_train = pmap_dbl(list(fit, train, target), accuracy),
+    accuracy_test  = pmap_dbl(list(fit, test,  target), accuracy)
+  ) %>% 
+  # Select columns and order rows
+  select(nrounds, eta, max_depth, contains("accuracy")) %>% 
+  arrange(desc(accuracy_test), desc(accuracy_train))
+
+results
+```
+
+Our top model got `r round(results[1, 'accuracy_test'] * 100, 2)`% on a test set, was had `nrounds` = `r results[1, 'nrounds']`, `eta` = `r results[1, 'eta']`, and `max_depth` = `r results[1, 'max_depth']`.
+
+Either way, the trick was the wrapper function `pl_xgboost()` that let us bridge xgboost and pipelearner. Note that this same principle can be used for any other machine learning functions that don't play nice with pipelearner.
+
+## Bonus: learning curves
+
+For those of you who are comfortable, here's a bonus example examining learning curves:
+
+```{r}
+results <- pipelearner(d, pl_xgboost, cancer ~ ., nrounds = 25) %>% 
+  learn_curves(seq(.1, 1, by = .1)) %>% 
+  learn() %>% 
+  mutate(
+    train = pmap_dbl(list(fit, train, target), accuracy),
+    test  = pmap_dbl(list(fit, test,  target), accuracy)
+  )
+
+results %>% 
+  select(train_p, train, test) %>% 
+  gather(data, accuracy, -train_p) %>% 
+  ggplot(aes(train_p, accuracy)) +
+    geom_line(aes(linetype = data)) +
+    geom_point(aes(color = data), size = 3) +
+    scale_x_continuous(labels = scales::percent) +
+    scale_y_continuous(labels = scales::percent) +
+    theme_minimal() +
+    labs(x = "Proportion of training data used")
+```
 
 ## Sign off
 
