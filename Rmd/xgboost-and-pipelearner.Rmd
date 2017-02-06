@@ -180,7 +180,7 @@ results <- fits %>%
 results
 ```
 
-Our top model got `r round(results[1, 'accuracy_test'] * 100, 2)`% on a test set, was had `nrounds` = `r results[1, 'nrounds']`, `eta` = `r results[1, 'eta']`, and `max_depth` = `r results[1, 'max_depth']`.
+Our top model, which got `r round(results[1, 'accuracy_test'] * 100, 2)`% on a test set, had `nrounds` = `r results[1, 'nrounds']`, `eta` = `r results[1, 'eta']`, and `max_depth` = `r results[1, 'max_depth']`.
 
 Either way, the trick was the wrapper function `pl_xgboost()` that let us bridge xgboost and pipelearner. Note that this same principle can be used for any other machine learning functions that don't play nice with pipelearner.
 
