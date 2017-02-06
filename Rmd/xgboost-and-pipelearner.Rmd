@@ -184,29 +184,25 @@ Our top model got `r round(results[1, 'accuracy_test'] * 100, 2)`% on a test set
 
 Either way, the trick was the wrapper function `pl_xgboost()` that let us bridge xgboost and pipelearner. Note that this same principle can be used for any other machine learning functions that don't play nice with pipelearner.
 
-## Bonus: learning curves
+## Bonus: bootstrapped cross validation 
 
-For those of you who are comfortable, here's a bonus example examining learning curves:
+For those of you who are comfortable, below is a bonus example of using 100 boostrapped cross validation samples to examine consistency in the accuracy. It doesn't get much easier than using pipelearner!
 
 ```{r}
 results <- pipelearner(d, pl_xgboost, cancer ~ ., nrounds = 25) %>% 
-  learn_curves(seq(.1, 1, by = .1)) %>% 
+  learn_cvpairs(n = 100) %>% 
   learn() %>% 
   mutate(
-    train = pmap_dbl(list(fit, train, target), accuracy),
-    test  = pmap_dbl(list(fit, test,  target), accuracy)
+    test_accuracy  = pmap_dbl(list(fit, test,  target), accuracy)
   )
 
 results %>% 
-  select(train_p, train, test) %>% 
-  gather(data, accuracy, -train_p) %>% 
-  ggplot(aes(train_p, accuracy)) +
-    geom_line(aes(linetype = data)) +
-    geom_point(aes(color = data), size = 3) +
+  ggplot(aes(test_accuracy)) +
+    geom_histogram(bins = 30) +
     scale_x_continuous(labels = scales::percent) +
-    scale_y_continuous(labels = scales::percent) +
     theme_minimal() +
-    labs(x = "Proportion of training data used")
+    labs(x = "Accuracy", y = "Number of samples",
+         title = "Test accuracy distribution for\n100 bootstrapped samples")
 ```
 
 ## Sign off
