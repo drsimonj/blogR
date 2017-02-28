@@ -13,9 +13,27 @@ knitr::opts_chunk$set(
 )
 ```
 
-[\@drsimonj](https://twitter.com/drsimonj) here to 
+[\@drsimonj](https://twitter.com/drsimonj) here to share a super simple method for creating beautiful ordered bar plots like these:
 
-```{r init-example, message = FALSE}
+```{r init-example, message = FALSE, echo = F}
+library(dplyr)
+library(ggplot2)
+
+ourworldindata::child_mortality %>% 
+  tidyr::drop_na() %>%
+  count(continent) %>% 
+  mutate(continent = reorder(continent, n)) %>% 
+  ggplot(aes(x = continent, y = n, fill = n)) +
+    geom_col(show.legend = FALSE) +
+    theme_minimal()
+
+ourworldindata::child_mortality %>% 
+  tidyr::drop_na() %>%
+  count(continent) %>% 
+  mutate(continent = reorder(continent, n)) %>% 
+  ggplot(aes(x = continent, y = n, fill = n)) +
+    geom_col(show.legend = FALSE) +
+    theme_minimal()
 
 ```
 

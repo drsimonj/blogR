@@ -1,0 +1,274 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.align = "center",
+  fig.ext = "jpeg"
+)
+```
+
+[\@drsimonj](https://twitter.com/drsimonj) here to show you how to use ggraph and corrr to create correlation network plots like these:
+
+```{r library-import, echo = FALSE, message = FALSE, warning = F}
+library(tidyverse)
+library(corrr)
+library(igraph)
+library(ggraph)
+library(fivethirtyeight)
+library(countrycode)
+```
+
+```{r init-example-a, echo = FALSE, message = FALSE, warning = F}
+tidy_cors <- correlate(mtcars) %>% stretch()
+
+graph_cors <- tidy_cors %>%
+  filter(abs(r) > .3) %>%
+  graph_from_data_frame(directed = FALSE)
+
+set.seed(78)
+ggraph(graph_cors) +
+  geom_edge_link(aes(edge_alpha = abs(r), edge_width = abs(r), color = r)) +
+  guides(edge_alpha = "none", edge_width = "none") +
+  scale_edge_colour_gradientn(limits = c(-1, 1), colors = c("firebrick2", "dodgerblue2")) +
+  geom_node_point(color = "white", size = 5) +
+  geom_node_text(aes(label = name), repel = TRUE) +
+  theme_graph() +
+  labs(title = "Correlations between car variables")
+```
+
+```{r init-example-b, echo = F, message = F, warning = F, fig.height=9, fig.width=10}
+# Prep relevant data
+d <- fivethirtyeight::drinks %>% 
+  mutate(continent = countrycode(country, "country.name", "continent")) %>% 
+  filter(continent %in% c("Europe", "Americas") | country == "Australia") %>% 
+  select(country, contains("servings"))
+
+# Scale data (because absolute values will correlate really highly)
+scaled_data <- d %>% mutate_if(is.numeric, scale)
+
+# Tidy data
+tidy_data <- scaled_data %>% 
+  gather(type, litres, -country) %>% 
+  drop_na() %>% 
+  group_by(country) %>% 
+  filter(sd(litres) > 0) %>% 
+  ungroup()
+
+# Spread for correlations
+wide_data <- tidy_data %>% 
+  spread(country, litres) %>% 
+  select(-type)
+
+# Tidy data frame of correlations
+tidy_cors <- wide_data %>% 
+  correlate() %>% 
+  stretch()
+
+# Graph object of correlations
+graph_cors <- tidy_cors %>% 
+  #filter(abs(r) > .9) %>%
+  filter(r > .9) %>% 
+  graph_from_data_frame(directed = FALSE)
+
+# Plot
+set.seed(12)
+ggraph(graph_cors) +
+  geom_edge_link(aes(edge_alpha = abs(r), edge_width = abs(r), color = r)) +
+  guides(edge_alpha = "none", edge_width = "none") +
+  scale_edge_colour_gradientn(limits = c(0, 1), colors = c("white", "dodgerblue2")) +
+  geom_node_point(color = "white", size = 5) +
+  geom_node_text(aes(label = name), repel = TRUE) +
+  theme_graph() +
+  labs(title = "Which countries have similar drinking habits?")
+```
+
+## ggraph and corrr
+
+The [ggraph](https://github.com/thomasp85/ggraph) package by [Thomas Lin Pedersen](https://twitter.com/thomasp85), has just been published on CRAN and it's so hot right now! What does it do?
+
+> "ggraph is an extension of ggplot2 aimed at supporting relational data structures such as networks, graphs, and trees."
+
+A relational metric I work with a lot is correlations. Becuase of this, I created the [corrr](https://github.com/drsimonj/corrr) package, which helps to explore correlations by leveraging data frames and tidyverse tools rather than matrices.
+
+So...
+
+- corrr creates relational data frames of correlations intended to work with tidyverse tools like ggplot2.
+- ggraph extends ggplot2 to help plot relational structures.
+
+Seems like a perfect match!
+
+## Libraries
+
+We'll be using the following libraries:
+
+```{r, warning = F, message = F}
+library(tidyverse)
+library(corrr)
+library(igraph)
+library(ggraph)
+```
+
+## Basic approach
+
+Given a data frame `d` of numeric variables for which we want to plot the correlations in a network, here's a basic approach:
+
+```{r, eval = F}
+# Create a tidy data frame of correlations
+tidy_cors <- d %>% 
+  correlate() %>% 
+  stretch()
+
+# Convert correlations stronger than some value
+# to an undirected graph object
+graph_cors <- tidy_cors %>% 
+  filter(abs(r) > `VALUE_BETWEEN_0_AND_1`) %>% 
+  graph_from_data_frame(directed = FALSE)
+
+# Plot
+ggraph(graph_cors) +
+  geom_edge_link() +
+  geom_node_point() +
+  geom_node_text(aes(label = name), repel = TRUE) +
+  theme_graph()
+```
+
+## Example 1: correlating variables in mtcars
+
+Let's follow this for the `mtcars` data set. By default, all variables are numeric, so we don't need to do any pre-processing.
+
+We first create a tidy data frame of correlations to be converted to a graph object. We do this with two corrr functions: `correlate()`, to create a correlation data frame, and `stretch()`, to convert it into a tidy format:
+
+```{r, message = F, warning = F}
+tidy_cors <- mtcars %>% 
+  correlate() %>% 
+  stretch()
+
+tidy_cors
+```
+
+Next, we convert these values to an undirected graph object. The graph is undirected because correlations do not have a direction. For example, correlations do not assume cause or effect. This is done using the [igraph](http://igraph.org/redirect.html) function, `graph_from_data_frame(directed = FALSE)`.
+
+Because, we typically don't want to see ALL of the correlations, we first `filter()` out any correlations with an absolute value less than some threshold. For example, let's include correlations that are .3 or stronger (positive OR negative):
+
+```{r}
+graph_cors <- tidy_cors %>%
+  filter(abs(r) > .3) %>%
+  graph_from_data_frame(directed = FALSE)
+
+graph_cors
+```
+
+We now plot this object with ggraph. Here's a basic plot:
+
+```{r car-plot-basic, message = F, warning = F}
+ggraph(graph_cors) +
+  geom_edge_link() +
+  geom_node_point() +
+  geom_node_text(aes(label = name))
+```
+
+and here's one that's polished to look nicer:
+
+```{r car-plot, message = F, warning = F}
+ggraph(graph_cors) +
+  geom_edge_link(aes(edge_alpha = abs(r), edge_width = abs(r), color = r)) +
+  guides(edge_alpha = "none", edge_width = "none") +
+  scale_edge_colour_gradientn(limits = c(-1, 1), colors = c("firebrick2", "dodgerblue2")) +
+  geom_node_point(color = "white", size = 5) +
+  geom_node_text(aes(label = name), repel = TRUE) +
+  theme_graph() +
+  labs(title = "Correlations between car variables")
+```
+
+For an excellent resource on how these graphing parts work, Thomas has some great posts like [this one](http://www.data-imaginist.com/2017/Announcing-ggraph/) on his blog, [data-imaginist.com](http://www.data-imaginist.com/).
+
+## Example 2: countries with similar drinking habits
+
+This example requires some data pre-processing, and we'll only look at strong positive correlations.
+
+I'm about to finish my job in Australia and am looking for work elsewhere. As is typical of Australians, a friend suggested I look for work in countries where people drink like us. This is probably not the best approach for job hunting, but it makes for a fun example!
+
+Conveniently, [FiveThirtyEight](https://fivethirtyeight.com/datalab/dear-mona-followup-where-do-people-drink-the-most-beer-wine-and-spirits/) did a story on the amount of beer, wine, and spirits, drunk by countries around the world. Even more conveniently, the data is included in the [fivethirtyeight](https://github.com/rudeboybert/fivethirtyeight) package! Let's take a look:
+
+```{r}
+library(fivethirtyeight)
+
+drinks
+```
+
+I wanted to find which countries in Europe and the Americas had similar patterns of beer, wine, and spirit drinking, and where Australia fit in. Using the [countrycode](https://github.com/vincentarelbundock/countrycode) package to bind continent information and find the countries I'm interested, let's get this data into shape for correlations:
+
+```{r}
+library(countrycode)
+
+# Get relevant data for Australia and countries
+# in Europe and the Americas
+d <- drinks %>% 
+  mutate(continent = countrycode(country, "country.name", "continent")) %>% 
+  filter(continent %in% c("Europe", "Americas") | country == "Australia") %>% 
+  select(country, contains("servings"))
+
+# Scale data to examine relative amounts,
+# rather than absolute volume, of
+# beer, wine and spirits drunk
+scaled_data <- d %>% mutate_if(is.numeric, scale)
+
+# Tidy the data
+tidy_data <- scaled_data %>% 
+  gather(type, litres, -country) %>% 
+  drop_na() %>% 
+  group_by(country) %>% 
+  filter(sd(litres) > 0) %>% 
+  ungroup()
+
+# Widen into suitable format for correlations
+wide_data <- tidy_data %>% 
+  spread(country, litres) %>% 
+  select(-type)
+
+wide_data
+```
+
+This data includes the z-scores of the amount of beer, wine and spirits drunk in each country.
+
+We can now go ahead with our standard approach. Because I'm only interested in which countries are really similar, we'll `filter(r > .9)`:
+
+```{r country-plot, echo = F, message = F, warning = F, fig.height=9, fig.width=10}
+# Tidy data frame of correlations
+tidy_cors <- wide_data %>% 
+  correlate() %>% 
+  stretch()
+
+# Graph object of correlations
+graph_cors <- tidy_cors %>% 
+  filter(r > .9) %>% 
+  graph_from_data_frame(directed = FALSE)
+
+# Plot
+set.seed(12)  # For reproducible result
+ggraph(graph_cors) +
+  geom_edge_link(aes(edge_alpha = r, edge_width = r, color = r)) +
+  guides(edge_alpha = "none", edge_width = "none") +
+  scale_edge_colour_gradientn(limits = c(0, 1), colors = c("white", "dodgerblue2")) +
+  geom_node_point(color = "white", size = 5) +
+  geom_node_text(aes(label = name), repel = TRUE) +
+  theme_graph() +
+  labs(title = "Which countries have similar drinking habits?")
+```
+
+It looks like the drinking behaviour of these countries group into three clusters. I'll leave it to you do think about what defines those clusters!
+
+The important thing for my friend: Australia appears in the top left cluster along with many West and North European countries like the United Kingdom, France, Netherlands, Norway, and Sweden. Perhaps this is the region I should look for work if I want to keep up Aussie drinking habits!
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
