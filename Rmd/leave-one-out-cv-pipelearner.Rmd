@@ -1,0 +1,105 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.height = 3,
+  fig.width = 4,
+  fig.align = "center"
+)
+```
+
+[\@drsimonj](https://twitter.com/drsimonj) here to show you how to do [leave-one-out cross validation](https://en.wikipedia.org/wiki/Cross-validation_(statistics)) using pipelearner.
+
+## Leave-one-out cross validation
+
+Leave-one-out is a type of cross validation whereby the following is done for each observation in the data:
+
+- Run model on all other observations
+- Use model to predict value for observation
+
+This means that a model is fitted, and a predicted is made $n$ times where $n$ is the number of observations in your data.
+
+## Leave-one-out in pipelearner
+
+[pipelearner](https://github.com/drsimonj/pipelearner) is a package for streamlining machine learning pipelines, including cross validation. If you're new to it, check out [blogR](https://drsimonj.svbtle.com/) for other relevant posts.
+
+To demonstrate, let's use regression to predict horsepower (`hp`) with all other variables in the `mtcars` data set. Set this up in pipelearner as follows:
+
+```{r}
+library(pipelearner)
+
+pl <- pipelearner(mtcars, lm, hp ~ .)
+```
+
+How cross validation is done is handled by `learn_cvpairs()`. For leave-one-out, specify *k = number of rows*:
+
+```{r}
+pl <- learn_cvpairs(pl, k = nrow(mtcars))
+```
+
+Finally, `learn()` the model on all folds:
+
+```{r}
+pl <- learn(pl)
+```
+
+This can all be written in a pipeline:
+
+```{r}
+pl <- pipelearner(mtcars, lm, hp ~ .) %>% 
+  learn_cvpairs(k = nrow(mtcars)) %>% 
+  learn()
+
+pl
+```
+
+## Evaluating performance
+
+Performance can be evaluated in many ways depending on your model. We will calculate R^2^:
+
+```{r, message = F, warning = F}
+library(tidyverse)
+
+# Extract true and predicted values of hp for each observation
+pl <- pl %>% 
+  mutate(true = map2_dbl(test, target, ~as.data.frame(.x)[[.y]]),
+         predicted = map2_dbl(fit, test, predict)) 
+
+# Summarise results
+results <- pl %>% 
+  summarise(
+    sse = sum((predicted - true)^2),
+    sst = sum(true^2)
+  ) %>% 
+  mutate(r_squared = 1 - sse / sst)
+
+results
+```
+
+Using leave-one-out cross validation, the regression model obtains an R^2^ of `r round(results$r_squared, 2)` when generalizing to predict horsepower in new data.
+
+We'll conclude with a plot of each true data point and it's predicted value:
+
+```{r}
+pl %>% 
+  ggplot(aes(true, predicted)) +
+      geom_point(size = 2) +
+      geom_abline(intercept = 0, slope = 1, linetype = 2)  +
+      theme_minimal() +
+      labs(x = "True value", y = "Predicted value") +
+      ggtitle("True against predicted values based\non leave-one-one cross validation")
+```
+
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
