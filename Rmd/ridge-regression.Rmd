@@ -81,7 +81,7 @@ These are the two things we need to predict new data. For example, predicting va
 y_predicted <- predict(fit, s = opt_lambda, newx = x)
 
 # Sum of Squares Total and Error
-sst <- sum(y^2)
+sst <- sum((y - mean(y))^2)
 sse <- sum((y_predicted - y)^2)
 
 # R squared
@@ -103,7 +103,7 @@ I first set up the functions to run the simulation:
 # Compute R^2 from true and predicted values
 rsquare <- function(true, predicted) {
   sse <- sum((predicted - true)^2)
-  sst <- sum(true^2)
+  sst <- sum((true - mean(true))^2)
   rsq <- 1 - sse / sst
   
   # For this post, impose floor...

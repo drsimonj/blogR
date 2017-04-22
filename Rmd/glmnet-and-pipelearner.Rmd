@@ -1,0 +1,29 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.height = 3,
+  fig.width = 4,
+  fig.align = "center",
+  fig.ext = "jpg"
+)
+```
+
+[\@drsimonj](https://twitter.com/drsimonj) here to demonstrate how to combine the generalized linear models fitted via the glmnet package with tidy machine learning pipelines using the pipelearner package.
+
+## Ridge regression with glmnet
+
+In this post we'll integrate glmnet's ridge regression into pipelearner's tidy machine learning API.
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
