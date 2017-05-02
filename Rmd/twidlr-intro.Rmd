@@ -16,52 +16,31 @@ knitr::opts_chunk$set(
 
 <img src="https://github.com/drsimonj/twidlr/raw/master/man/figures/logo.png" align="right" />
 
-[\@drsimonj](https://twitter.com/drsimonj) here to introduce my latest tidy-modelling package, "[twidlr](https://github.com/drsimonj/twidlr)". Its aim is to give modelling functions a consistent **data.frame-first formula-second API**.
+[\@drsimonj](https://twitter.com/drsimonj) here to introduce my latest tidy-modelling package for R, "[twidlr](https://github.com/drsimonj/twidlr)". twidlr wraps model and predict functions you already know and love with a consistent data.frame-based API!
 
-Instead of writing model functions like this:
-
-```{r, eval = F}
-lm(hp ~ ., mtcars)
-
-library(xgboost)
-xgboost(as.matrix(mtcars[names(mtcars) != "hp"]), mtcars$hp)
-
-library(glmnet)
-glmnet(model.matrix(Petal.Length ~ Sepal.Width * Species, iris), iris$Petal.Length)
-```
-
-Write them like this:
+All models wrapped by twidlr can be fit to data and used to make predictions as follows:
 
 ```{r, eval = F}
 library(twidlr)
 
-lm(mtcars, hp ~ .)
-xgboost(mtcars, hp ~ ., nrounds = 5)
-glmnet(iris, Petal.Length ~ Sepal.Width * Species)
+fit <- model(data, formula, ...)
+predict(fit, data, ...)
 ```
 
-Or like this:
+- `data` is a data.frame (or object that can be corced to one) and is **required**
+- `formula` describes the model to be fit
 
-```{r, eval = F}
-library(twidlr)
+## The motivation
 
-mtcars %>% lm(hp ~ .)
-mtcars %>% xgboost(hp ~ ., nrounds = 5)
-iris   %>% glmnet(Petal.Length ~ Sepal.Width * Species)
-```
+The APIs of model and predict functions in R are inconsistent and messy.
 
-
-## The problem
-
-R model APIs are inconsistent and messy.
-
-Some models want a formulas and data frames. For example, linear regression:
+Some models like linear regression want a formula and data.frame:
 
 ```{r, eval = F}
 lm(hp ~ ., mtcars)
 ```
 
-Some want vectors and matrices. For example, gradient-boosted decision trees:
+Models like gradient-boosted decision trees want vectors and matrices:
 
 ```{r, eval = F, warning = F}
 library(xgboost)
@@ -72,7 +51,7 @@ x <- as.matrix(mtcars[names(mtcars) != "hp"])
 xgboost(x, y, nrounds = 5)
 ```
 
-Some want you to work! For example, interactions and dummy-coded variables with generalized linear models:
+Models like generalized linear models want you to work! For example, to create interactions and dummy-coded variables:
 
 ```{r, eval = F, warning = F}
 library(glmnet)
@@ -83,15 +62,37 @@ x <- model.matrix(Petal.Length ~ Sepal.Width * Sepal.Length + Species, iris)
 glmnet(x, y)
 ```
 
-And that's just the obvious stuff!
+Some models like k-means don't have a corresponding predict function:
+
+```{r, eval = F}
+fit <- kmeans(iris[1:120,-5], centers = 3)
+predict(fit, iris[121:150,])
+
+## Error in UseMethod("predict") : 
+##   no applicable method for 'predict' applied to an object of class "kmeans"
+```
+
+Some predict functions are impure and return unexpected results! For example, linear discriminant analysis:
+
+```{r}
+library(MASS)
+
+d <- iris
+fit <- lda(Species ~ ., d)
+
+table(predict(fit)$class)
+
+d <- d[1:10,]
+
+table(predict(fit)$class)
+```
+
 
 ## ~ twidlr
 
-twidlr helps to solve these sorts of issues by exposing model functions with a consistent data.frame-first formula-second interface.
+twidlr helps to solve these problems by wrapping model and predict functions you already know and love with a consistent data.frame-based API!
 
-Load twidlr and use the model functions you know and love by passing them a data frame, a formula, and any additional arguments!
-
-To demonstrate, compared to above:
+Load twidlr and your favourite models can be fit to a data.frame with a formula and any additional arguments! To demonstrate, compare API to above:
 
 ```{r, eval = F, message = F}
 library(twidlr)
@@ -101,14 +102,51 @@ xgboost(mtcars, hp ~ ., nrounds = 5)
 glmnet(iris, Petal.Length ~ Sepal.Width * Sepal.Length + Species)
 ```
 
+What's more, predictions can be made with all fitted models via `predict` and a data.frame. This even works for models that don't traditionally have a `predict` method:
+
+```{r, message = FALSE}
+library(twidlr)
+
+fit <- kmeans(iris[1:140,-5], centers = 3)
+predict(fit, iris[141:150,])
+```
+
+## Bonus example
+
+Although useful in itself, a consistent data.frame-based API expands the capabilities of other tidy and data.frame-based packages like the [tidyverse packages](http://tidyverse.org/) and [pipelearner](https://github.com/drsimonj/pipelearner).
+
+For the motivated, this demonstrates how to fit multiple models and compare their RMSE on new data. It's streamlined because purrr's map functions can exploit the consistent API for each model and `predict`.
+
+```{r}
+library(twidlr)
+library(purrr)
+
+train <- cars[ 1:40, ]
+test  <- cars[41:50, ]
+f <- c("lm", "randomForest", "rpart")
+
+# Fit each model to training data and compute RMSE on test data
+rmse <- invoke_map(f, data = train, formula = speed ~ dist) %>%
+  map(predict, data = test) %>% 
+  map_dbl(~ sqrt(mean((. - test$speed)^2)))
+
+setNames(rmse, f)
+```
+
+If you can't see the value, try doing this without twidlr!
+
 ## Take home messages
 
-- twidlr makes model APIs consistent and tidy
-- twidlr let's you pipe data frames
-- twidlr leverages formula operators
-- twidlr loads all your models functions (no need to load multiple packages)
+twidlr attempts to brings the follwing to modelling in R:
 
-Also, it's super easy to contribute. So if your favourite model isn't listed [here](https://github.com/drsimonj/twidlr), fork [twidlr on GitHub](https://github.com/drsimonj/twidlr) and add it to help improve modelling in R! Advice for contributing can be found [here](https://github.com/drsimonj/twidlr/blob/master/CONTRIBUTING.md).
+- a consistent and tidy model APIs
+- pure and available predict functions
+- the power of formula operators
+- tidyverse philosophy (keep piping!)
+
+But twidlr is new, and needs your help to grow! So if your favourite model isn't listed [here](https://github.com/drsimonj/twidlr), fork [twidlr on GitHub](https://github.com/drsimonj/twidlr) and add it to help improve modelling in R! Advice for contributing can be found [here](https://github.com/drsimonj/twidlr/blob/master/CONTRIBUTING.md).
+
+Thanks already to [Joran Elias](https://github.com/joranE) and [Mathew Ling](https://github.com/Lingtax) for their contributions!
 
 ## Sign off
 
