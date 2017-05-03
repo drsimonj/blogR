@@ -87,6 +87,15 @@ d <- d[1:10,]
 table(predict(fit)$class)
 ```
 
+Principal components is another example. You can fit the model with a complex formula, but can't predict new data!
+
+```{r, eval = F}
+fit <- prcomp(~.*., mtcars[1:25, ])  # All 2-way interactions
+predict(fit, mtcars[26:32,])
+
+## Error in predict.prcomp(fit, mtcars[26:32, ]) :
+##   'newdata' does not have named columns matching one or more of the original columns
+```
 
 ## ~ twidlr
 
@@ -110,6 +119,7 @@ library(twidlr)
 fit <- kmeans(iris[1:140,-5], centers = 3)
 predict(fit, iris[141:150,])
 ```
+
 
 ## Bonus example
 
