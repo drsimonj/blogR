@@ -4,3 +4,6 @@
 !*/
 !*.Rmd
 .Rproj.user
+
+Rmd/figs/
+Rmd/*.md
