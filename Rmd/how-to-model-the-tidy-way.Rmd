@@ -7,17 +7,97 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
   fig.path = "figs/",
-  fig.height = 3,
-  fig.width = 4,
+  fig.height = 5,
+  fig.width = 6,
   fig.align = "center",
   fig.ext = "jpg"
 )
+
+ggplot2::theme_set(ggplot2::theme_minimal())
 ```
 
-[\@drsimonj](https://twitter.com/drsimonj) here to 
+[\@drsimonj](https://twitter.com/drsimonj) here to do some tidy machine learning in R!
 
-```{r init-example, message = FALSE}
+## Background
 
+*WARNING: Only read this section if you like a good rant. Otherwise, go to "Getting Started" for the technical stuff.*
+
+Combining the [tidyverse](http://tidyverse.org/) with machine learning/modelling is desirable, doable, but a bit of a headache. My first solution to this problem was [pipelearner](https://github.com/drsimonj/pipelearner). I've now done a few posts about it like the [intro to pipelearner](https://drsimonj.svbtle.com/easy-machine-learning-pipelines-with-pipelearner-intro-and-call-for-contributors), how to do [grid search](https://drsimonj.svbtle.com/how-to-grid-search-with-pipelearner) and [leave-one-out cross validation](https://drsimonj.svbtle.com/easy-leave-one-out-cross-validation-with-pipelearner), and how to [combine pipelearner with xgboost](https://drsimonj.svbtle.com/with-our-powers-combined-xgboost-and-pipelearner). pipelearner has been great for me, but I've discovered challenges to making it work relatively seamlessly.
+
+I've come to see a need for multiple packages, each addressing a specific issue related to tidy modelling. The first package I started using that did exactly this was [David Robinson's](https://twitter.com/drob?lang=en) [broom](https://github.com/tidyverse/broom). broom nicely solves a specific issue for tidy modelling: "The broom package takes the messy output of built-in functions in R, such as `lm`, `nls`, or `t.test`, and turns them into tidy data frames."
+
+This thought process led me to [twidlr](https://github.com/drsimonj/twidlr). A specific challenge that arose when developing pipelearner was that different model functions take different types of inputs! That is, models in R don't all take tidy data frames as input. twidlr is my attempt of solving this specific issue (along with some necessarily related ones like fixing `predict` functions). twidlr creates wrappers for existing model functions that forces them to take a data frame and formula as inputs. This makes the job of complex packages like pipelearner much easier!
+
+For now, I've got two personal tidy machine learning/modelling packages: pipelearner and twidlr. But two is the start of a family! As specific issues come up, it'd be great to address it with a new tidy modelling package, until there exists a whole new collection of tidy modelling packages that work together and with the tidyverse!
+
+So, without further ado, this post will demonstrate how the tidyverse, pipelearner, and twidlr can work seamlessly together to make tidy machine learning and modelling a breeze!
+
+## Getting Started
+
+Install and load the following:
+
+```{r, message=F, warning=F}
+# To install if required...
+#install.packages("glmnet")
+#install.packages("tidyverse")
+#devtools::install_github("drsimonj/pipelearner")
+#devtools::install_github("drsimonj/twidlr")
+
+library(tidyverse)
+library(pipelearner)
+library(twidlr)
+```
+
+We'll use the cars data from [ggplot2](http://ggplot2.tidyverse.org/index.html) (installed with tidyverse):
+
+```{r}
+d <- ggplot2::mpg %>% 
+  mutate_if(is.character, as.factor)
+d
+```
+
+We'll use some helper functions to compute the RMSE metric and extract a variable from resample object (which comes from the tidyverse's [modelr](https://github.com/tidyverse/modelr) package):
+
+```{r}
+rmse <- function(true, predicted) {
+  sqrt(mean((predicted - true)^2))
+}
+pull_from_resample <- function(resample, variable) {
+  as.data.frame(resample)[[variable]]
+}
+```
+
+## Tidy modelling challenge
+
+**Challenge**: how to best regularize a regression model to optimize prediction of cars' city miles per gallon (`cty`)?
+
+Our model function will be `cv.glmnet` from the [glmnet](https://cran.r-project.org/web/packages/glmnet/index.html) package, which is made available with a tidy API by twidlr. We'll want to compare various regularization values and assess performance using cross-validation. We'll do this the tidy way with tidyverse, pipelearner, and twidlr!
+
+Fit models with varying values of `alpha`, each to 10 cross-validation folds:
+
+```{r}
+# Fit models with `alpha` values ranging from 0 to 1, each to 100 
+# cross-validation samples:
+pl <- pipelearner(d) %>% 
+  learn_models(cv.glmnet, cty ~ ., alpha = seq(0, 1, .1)) %>% 
+  learn_cvpairs(n = 100) %>% 
+  learn()
+
+# Extract alpha and compute R-Squared
+pl <- pl %>% 
+  mutate(alpha     = map_dbl(params, "alpha"),
+         true      = map2(test, target, pull_from_resample),
+         predicted = map2(fit, test, predict, s = "lambda.min"),
+         rsquared  = map2_dbl(true, predicted, rmse))
+
+# Plot
+ggplot(pl, aes(factor(alpha), rsquared)) +
+  stat_summary(fun.y = mean, fun.ymin = min, fun.ymax = max,
+                 size = 1, colour = "#7c9ee1") +
+  geom_jitter(width = .2, size = 2, alpha = .2, color = "#99dbe3 ") +
+  ggtitle("Prediction performance on test sets") +
+  labs(x = "Regularization parameter, alpha",
+       y = "RMSE")
 ```
 
 
