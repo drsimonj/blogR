@@ -1,0 +1,112 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.height = 3,
+  fig.width = 4,
+  fig.align = "center",
+  fig.ext = "png"
+)
+```
+
+[\@drsimonj](https://twitter.com/drsimonj) here to show you how to go from data in a data.frame to a tidy data.frame of model output by combining twidlr and broom in a single, tidy model pipeline.
+
+## The problem
+
+Different model functions take various types of inputs (data.frames, matrices, etc.) and produce different kinds of output! Thus, we're often confronted with the very untidy challenge presented in this Figure:
+
+
+Thus, different models may need very different code.
+
+However, it's possible to create a consistent, tidy pipeline by combining the [twidlr](https://github.com/drsimonj/twidlr) and [broom](https://github.com/tidyverse/broom) packages. Let's see how this works.
+
+## Two-step modelling
+
+To understand the solution, think of the problem as a two-step process, depicted in this Figure:
+
+### Step 1: from data to fitted model
+
+Step 1 must take data in a data.frame as input and return a fitted model object. twidlr exposes model functions that do just this!
+
+To demonstrate:
+
+```{r, message=F}
+#devtools::install_github("drimonj/twidlr")  # To install
+library(twidlr)
+
+lm(mtcars, hp ~ .)
+```
+
+This means we can pipe data.frames into any model function exposed by twidlr. For example:
+
+```{r, message=F}
+library(dplyr)
+
+mtcars %>% lm(hp ~ .)
+```
+
+### Step2: fitted model to tidy results
+
+Step 2 must take a fitted model object as its input and return a tidy data frame of results. Step 2 is precisely what the broom package does via three functions: `glance`, `tidy`, and `augment`! To demonstrate:
+
+```{r, warning = F}
+#install.packages("broom")  # To install
+library(broom)
+
+fit <- mtcars %>% lm(hp ~ .)
+
+glance(fit)
+
+tidy(fit)
+
+augment(fit) %>% head()
+```
+
+## A single, tidy pipeline
+
+So twidlr and broom functions can be combined into a single, tidy pipeline to go from data.frame of input to tidy data.frame of output:
+
+```{r}
+library(twidlr)
+library(broom)
+
+mtcars %>% 
+  lm(hp ~ .)  %>% 
+  glance()
+```
+
+Any model included in twidlr and broom can be used in this same way. Here's a `kmeans` example:
+
+```{r}
+iris %>%
+  select(-Species) %>% 
+  kmeans(centers = 3) %>% 
+  tidy()
+```
+
+And a ridge regression with cross-fold validation example:
+
+```{r}
+mtcars %>% 
+  cv.glmnet(am ~ ., alpha = 0) %>% 
+  glance()
+```
+
+So next time you want to do some tidy modelling, keep this pipeline in mind:
+
+## Limitations
+
+Currently, the major limitation of this approach is that twidlr and broom must include the model you want to use. For example, you can't use `randomForest` in this way for now because, although twidlr exposes a data.frame friendly version of it, broom doesn't provide tidying methods for it. So if you want to write tidy code for a model that isn't covered by these packages, have a go at helping out by contributing to these open source projects! To get started creating and contributing to R packages, take a look at Hadley Wickham's free book, "[R Packages](http://r-pkgs.had.co.nz/)".
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
