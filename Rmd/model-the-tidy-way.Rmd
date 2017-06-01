@@ -10,7 +10,7 @@ knitr::opts_chunk$set(
   fig.height = 5,
   fig.width = 6,
   fig.align = "center",
-  fig.ext = "jpg"
+  fig.ext = "png"
 )
 
 ggplot2::theme_set(ggplot2::theme_minimal())
@@ -30,7 +30,7 @@ This thought process led me to [twidlr](https://github.com/drsimonj/twidlr). A s
 
 For now, I've got two personal tidy machine learning/modelling packages: pipelearner and twidlr. But two is the start of a family! As specific issues come up, it'd be great to address it with a new tidy modelling package, until there exists a whole new collection of tidy modelling packages that work together and with the tidyverse!
 
-So, without further ado, this post will demonstrate how the tidyverse, pipelearner, and twidlr can work seamlessly together to make tidy machine learning and modelling a breeze!
+So, without further ado, this post will demonstrate how the tidyverse, pipelearner, and twidlr can work seamlessly together to help you do machine learning and modelling the tidy way!
 
 ## Getting Started
 
@@ -56,10 +56,10 @@ d <- ggplot2::mpg %>%
 d
 ```
 
-We'll use some helper functions to compute the RMSE metric and extract a variable from resample object (which comes from the tidyverse's [modelr](https://github.com/tidyverse/modelr) package):
+We'll use some helper functions to compute the rmse metric and extract a variable from resample object (which comes from the tidyverse's [modelr](https://github.com/tidyverse/modelr) package):
 
 ```{r}
-rmse <- function(true, predicted) {
+compute_rmse <- function(true, predicted) {
   sqrt(mean((predicted - true)^2))
 }
 pull_from_resample <- function(resample, variable) {
@@ -80,7 +80,7 @@ Fit models with varying values of `alpha`, each to 10 cross-validation folds:
 # cross-validation samples:
 pl <- pipelearner(d) %>% 
   learn_models(cv.glmnet, cty ~ ., alpha = seq(0, 1, .1)) %>% 
-  learn_cvpairs(n = 100) %>% 
+  learn_cvpairs(k = 10) %>% 
   learn()
 
 # Extract alpha and compute R-Squared
@@ -88,19 +88,17 @@ pl <- pl %>%
   mutate(alpha     = map_dbl(params, "alpha"),
          true      = map2(test, target, pull_from_resample),
          predicted = map2(fit, test, predict, s = "lambda.min"),
-         rsquared  = map2_dbl(true, predicted, rmse))
+         rmse  = map2_dbl(true, predicted, compute_rmse))
 
 # Plot
-ggplot(pl, aes(factor(alpha), rsquared)) +
+ggplot(pl, aes(factor(alpha), rmse)) +
   stat_summary(fun.y = mean, fun.ymin = min, fun.ymax = max,
                  size = 1, colour = "#7c9ee1") +
-  geom_jitter(width = .2, size = 2, alpha = .2, color = "#99dbe3 ") +
+  geom_jitter(width = .2, size = 2, alpha = .2, color = "#99dbe3") +
   ggtitle("Prediction performance on test sets") +
   labs(x = "Regularization parameter, alpha",
-       y = "RMSE")
+       y = "rmse")
 ```
-
-
 
 ## Sign off
 
