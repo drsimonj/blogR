@@ -10,7 +10,7 @@ knitr::opts_chunk$set(
   fig.height = 3,
   fig.width = 4,
   fig.align = "center",
-  fig.ext = "jpg"
+  fig.ext = "png"
 )
 ```
 
