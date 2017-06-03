@@ -36,7 +36,7 @@ Step 1 must take data in a data.frame as input and return a fitted model object.
 To demonstrate:
 
 ```{r, message=F}
-#devtools::install_github("drimonj/twidlr")  # To install
+#devtools::install_github("drsimonj/twidlr")  # To install
 library(twidlr)
 
 lm(mtcars, hp ~ .)
