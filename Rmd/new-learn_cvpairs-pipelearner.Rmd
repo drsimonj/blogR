@@ -1,0 +1,94 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.height = 3,
+  fig.width = 4,
+  fig.align = "center",
+  fig.ext = "png"
+)
+```
+
+[\@drsimonj](https://twitter.com/drsimonj) and [William Dearden](https://github.com/wdearden208) here to demonstrate how you can introduce arbitrary cross-validation functions into your tidy machine learning pipeline with [pipelearner](https://github.com/drsimonj/pipelearner).
+
+## Ground (and code) breaking
+
+The functionality introduced in this post was developed by William, and is a great step for the flexibility of pipelearner. However, if you've used pipelearner before, please be aware that the added functionality is code breaking, and directly affects how you use `learn_cvpairs()`.
+
+## Intro to cross validation with pipelearner
+
+pipelearner has offered `learn_cvpairs()` for customising the cross-validation pairs of a machine learning pipeline. This function has been the focus of the latest big change to pipelearner.
+
+Using the `mtcars` dataset, we'll setup a tidy machine learning pipeline to test how well a car's weight (`wt`) can predict its Miles Per Gallon (`mpg`) via linear regression (`lm`):
+
+```{r message = FALSE, warning = FALSE}
+library(pipelearner)
+
+pl <- pipelearner(mtcars) %>% 
+  learn_models(lm, mpg ~ wt)
+```
+
+By default, a single partition of the data is created, with 80% assigned to training and 20% for testing.
+
+```{r}
+fitted <- learn(pl)
+```
+```{r, echo = F}
+message("Number of models trained:        ",
+        nrow(fitted), "\n",
+        "Number of training observations: ",
+        stringr::str_c(purrr::map_int(fitted$train, nrow), collapse = "\t"), "\n",
+        "Number of test observations:     ",
+        stringr::str_c(purrr::map_int(fitted$test, nrow), collapse = "\t"))
+```
+
+We can customise the cross-validation pairs by including `learn_cvpairs()` into our pipeline. In prior versions, `learn_cvpairs()` only accepted arguments to do k-fold or bootstrapped partitions. Now, you can provide an arbitrary function so long as it returns a data frame of the required structure. Basic examples are shown here:
+
+*k-fold cross validation with `crossv_kfold`*
+
+```{r}
+fitted <- pl %>% 
+  learn_cvpairs(crossv_kfold, k = 5) %>% 
+  learn()
+```
+```{r, echo = F}
+message("Number of models trained:        ",
+        nrow(fitted), "\n",
+        "Number of training observations: ",
+        stringr::str_c(purrr::map_int(fitted$train, nrow), collapse = "\t"), "\n",
+        "Number of test observations:     ",
+        stringr::str_c(purrr::map_int(fitted$test, nrow), collapse = "\t"))
+```
+
+*n random partitions with `crossv_mc`*
+
+```{r}
+fitted <- pl %>% 
+  learn_cvpairs(crossv_mc, n = 10, test = .10) %>% 
+  learn()
+```
+```{r, echo = F}
+message("Number of models trained:        ",
+        nrow(fitted), "\n",
+        "Number of training observations: ",
+        stringr::str_c(purrr::map_int(fitted$train, nrow), collapse = "\t"), "\n",
+        "Number of test observations:     ",
+        stringr::str_c(purrr::map_int(fitted$test, nrow), collapse = "\t"))
+```
+
+## Leverage resamplr
+
+
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
