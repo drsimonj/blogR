@@ -1,0 +1,154 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.height = 3,
+  fig.width = 4,
+  fig.align = "center",
+  fig.ext = "png"
+)
+```
+
+[\@drsimonj](https://twitter.com/drsimonj) here to share my code for using [Welch's *t*-test]((https://en.wikipedia.org/wiki/Welch%27s_t-test)) to compare group means using summary statistics.
+
+## Motivation
+
+I've just started working with A/B tests that use big data. Where once I'd whimsically run `t.test()`, now my data won't fit into memory!
+
+I'm sharing my solution here in the hope that it might help others.
+
+## In-memory data
+
+As a baseline, let's start with an in-memory case by comparing whether automatic and manual cars have different Miles Per Gallon ratings on average (using the `mtcars` data set).
+
+```{r}
+t.test(mpg ~ am, data = mtcars)
+```
+
+Well... that was easy!
+
+## Big Data
+
+The problem with big data is that we can't pull it into memory and work with R.
+
+Fortunately, we don't need the raw data to run Welch's *t*-test. All we need is the mean, variance, and sample size of each group. So our raw data might have billions of rows, but we only need six numbers.
+
+Here are the numbers we need for the previous example:
+
+```{r, message = F}
+library(dplyr)
+
+grp_summary <- mtcars %>% 
+  group_by(am) %>% 
+  summarise(
+    mpg_mean = mean(mpg),
+    mpg_var  = var(mpg),
+    n        = n()
+  )
+
+grp_summary
+```
+
+This is everything we need to obtain a *t* value, degrees of freedom, and a *p* value.
+
+### *t* value
+
+Here we use the means, varianes, and sample sizes to compute Welch's *t*:
+
+```{r}
+welch_t <- diff(grp_summary$mpg_mean) / sqrt(sum(grp_summary$mpg_var/grp_summary$n))
+
+cat("Welch's t value of the mean difference is", welch_t)
+```
+
+This is the same value returned by `t.test()`, apart from the sign (which is unimportant).
+
+### Degrees of Freedom
+
+Here, we use the variances and sample sizes to compute the degrees of freedom, which is estimated by the [Welch–Satterthwaite equation](https://en.wikipedia.org/wiki/Welch%E2%80%93Satterthwaite_equation):
+
+```{r}
+welch_df <- ((sum(grp_summary$mpg_var/grp_summary$n))^2) /
+            sum(grp_summary$mpg_var^2/(grp_summary$n^2 * (grp_summary$n - 1)))
+
+cat("Degrees of Freedom for Welch's t is", welch_df)
+```
+
+Again, same as `t.test()`.
+
+### *p* value
+
+We can now calculate the *p* value thanks to R's `pt()`. Assuming we want to conduct a two-tailed test, here's what we need to do:
+
+```{r}
+welch_p <- 2 * pt(abs(welch_t), welch_df, lower.tail = FALSE)
+
+cat("p-value for Welch's t is", welch_p)
+```
+
+Same as `t.test()` again!
+
+## All-in-one Function
+
+Now we know the math, let's write a function that takes 2-element vectors of means, variances, and sample sizes, and returns the results in a data frame:
+
+```{r}
+welch_t_test <- function(sample_means, sample_vars, sample_ns) {
+  t_val <- diff(sample_means) / sqrt(sum(sample_vars/sample_ns))
+  
+  df    <- ((sum(sample_vars/sample_ns))^2) /
+            sum(sample_vars^2/(sample_ns^2 * (sample_ns - 1)))
+  
+  p_val <- 2 * pt(abs(t_val), df, lower.tail = FALSE)
+  
+  data.frame(t_val = t_val,
+             df    = df,
+             p_val = p_val)
+}
+```
+```{r}
+welch_t_test(grp_summary$mpg_mean,
+             grp_summary$mpg_var,
+             grp_summary$n)
+```
+
+Excellent!
+
+## Back to Big Data
+
+The point of all this was to help me conduct an A/B test with big data. Has it?
+
+Of course! I don't pull billions of rows from my data base into memory. Instead, I create a table of the summary statistics within my big data ecosystem. These are easy to pull into memory.
+
+How you create this summary table will vary depending on your setup, but here's a mock Hive/SQL query to demonstrate the idea: 
+
+```{sql, eval = FALSE}
+CREATE TABLE summary_tbl AS
+
+SELECT
+    group_var
+  , AVG(outcome)      AS outcome_mean
+  , VARIANCE(outcome) AS outcome_variance
+  , COUNT(*)          AS n
+
+FROM
+  raw_tbl
+
+GROUP BY
+  group_var
+```
+
+Happy testing!
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
