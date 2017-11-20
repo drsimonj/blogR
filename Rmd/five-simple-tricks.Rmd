@@ -1,0 +1,274 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.height = 3,
+  fig.width = 4,
+  fig.align = "center",
+  fig.ext = "png"
+)
+```
+
+[\@drsimonj](https://twitter.com/drsimonj) here with five simple tricks I find myself sharing all the time with fellow R users to improve their code!
+
+## 1. More fun to sequence from 1
+
+Next time you use the colon operator to create a sequence from 1 like `1:n`, try `seq()`.
+
+```{r eg-seq, message = FALSE}
+# Sequence a vector
+x <- runif(10)
+seq(x)
+
+# Sequence an integer
+seq(nrow(mtcars))
+```
+
+The colon operator can produce unexpected results that can create all sorts of problems without you noticing! Take a look at what happens when you want to sequence the length of an empty vector:
+
+```{r}
+# Empty vector
+x <- c()
+
+1:length(x)
+
+seq(x)
+```
+
+You'll also notice that this saves you from using functions like `length()`. When applied to an object of a certain length, `seq()` will automatically create a sequence from 1 to the length of the object.
+
+## 2. `vector()` what you `c()`
+
+Next time you create an empty vector with `c()`, try to replace it with `vector("type", length)`.
+
+```{r}
+# A numeric vector with 5 elements
+vector("numeric", 5)
+
+# A character vector with 3 elements
+vector("character", 3)
+```
+
+Doing this improves memory usage and increases speed! You often know upfront what type of values will go into a vector, and how long the vector will be. Using `c()` means R has to **slowly** work both of these things out. So help give it a boost with `vector()`!
+
+A good example of this value is in a for loop. People often write loops by declaring an empty vector and growing it with `c()` like this:
+
+```{r, eval = FALSE}
+x <- c()
+for (i in seq(5)) {
+  x <- c(x, i)
+}
+```
+```{r, echo = FALSE}
+x <- c()
+for (i in seq(5)) {
+  x <- c(x, i)
+  message("x at step ", i," : ", paste(x, collapse = ", "))
+}
+```
+
+Instead, pre-define the type and length with `vector()`, and reference positions by index, like this:
+
+```{r, eval = FALSE}
+n <- 5
+x <- vector("integer", n)
+for (i in seq(n)) {
+  x[i] <- i
+}
+```
+```{r, echo = FALSE}
+n <- 5
+x <- vector("integer", n)
+for (i in seq(n)) {
+  x[i] <- i
+  message("x at step ", i," : ", paste(x, collapse = ", "))
+}
+```
+
+Here's a quick speed comparison:
+
+```{r}
+n <- 1e5
+
+x_empty <- c()
+system.time(for(i in seq(n)) x_empty <- c(x_empty, i))
+
+x_zeros <- vector("integer", n)
+system.time(for(i in seq(n)) x_zeros[i] <- i)
+```
+
+That should be convincing enough!
+
+## 3. Ditch the `which()`
+
+Next time you use `which()`, try to ditch it! People often use `which()` to get indices from some boolean condition, and then select values at those indices. This is not necessary.
+
+Getting vector elements greater than 5:
+
+```{r}
+x <- 3:7
+
+# Using which (not necessary)
+x[which(x > 5)]
+
+# No which
+x[x > 5]
+```
+
+Or counting number of values greater than 5:
+
+```{r}
+# Using which
+length(which(x > 5))
+
+# Without which
+sum(x > 5)
+```
+
+Why should you ditch `which()`? It's often unnecessary and boolean vectors are all you need.
+
+For example, R lets you select elements flagged as `TRUE` in a boolean vector:
+
+```{r}
+condition <- x > 5
+condition
+x[condition]
+```
+
+Also, when combined with `sum()` or `mean()`, boolean vectors can be used to get the count or proportion of values meeting a condition:
+
+```{r}
+sum(condition)
+mean(condition)
+```
+
+`which()` tells you the indices of TRUE values:
+
+```{r}
+which(condition)
+```
+
+And while the results are not wrong, it's just not necessary. For example, I often see people combining `which()` and `length()` to test whether any or all values are TRUE. Instead, you just need `any()` or `all()`:
+
+```{r}
+x <- c(1, 2, 12)
+
+# Using `which()` and `length()` to test if any values are greater than 10
+if (length(which(x > 10)) > 0)
+  print("At least one value is greater than 10")
+
+# Wrapping a boolean vector with `any()`
+if (any(x > 10))
+  print("At least one value is greater than 10")
+
+# Using `which()` and `length()` to test if all values are positive
+if (length(which(x > 0)) == length(x))
+  print("All values are positive")
+
+# Wrapping a boolean vector with `all()`
+if (all(x > 0))
+  print("All values are positive")
+```
+
+Oh, and it saves you a little time...
+
+```{r}
+x <- runif(1e8)
+
+system.time(x[which(x > .5)])
+
+system.time(x[x > .5])
+```
+
+## 4. `factor` that factor!
+
+Ever removed values from a factor and found you're stuck with old levels that don't exist anymore? I see all sorts of creative ways to deal with this. The simplest solution is often just to wrap it in `factor()` again.
+
+This example creates a factor with four levels (`"a"`, `"b"`, `"c"` and `"d"`):
+
+```{r factor-1}
+# A factor with four levels
+x <- factor(c("a", "b", "c", "d"))
+x
+
+plot(x)
+```
+
+If you drop all cases of one level (`"d"`), the level is still recorded in the factor:
+
+```{r factor-2}
+# Drop all values for one level
+x <- x[x != "d"]
+
+# But we still have this level!
+x
+
+plot(x)
+```
+
+A super simple method for removing it is to use `factor()` again:
+
+```{r factor-3}
+x <- factor(x)
+x
+
+plot(x)
+```
+
+This is typically a good solution to a problem that gets a lot of people mad. So save yourself a headache and `factor` that factor!
+
+## 5. First you get the `$`, then you get the power
+
+Next time you want to extract values from a `data.frame` column where the rows meet a condition, specify the column with `$` before the rows with `[`.
+
+#### Examples
+
+Say you want the horsepower (`hp`) for cars with 4 cylinders (`cyl`), using the `mtcars` data set. You can write either of these:
+
+```{r}
+# rows first, column second - not ideal
+mtcars[mtcars$cyl == 4, ]$hp
+
+# column first, rows second - much better
+mtcars$hp[mtcars$cyl == 4]
+```
+
+The tip here is to use the second approach.
+
+But why is that?
+
+First reason: do away with that pesky comma! When you specify rows before the column, you need to remember the comma: `mtcars[mtcars$cyl == 4`**,**` ]$hp`. When you specify column first, this means that you're now referring to a vector, and don't need the comma!
+
+Second reason: speed! Let's test it out on a larger data frame:
+
+```{r}
+# Simulate a data frame...
+n <- 1e7
+d <- data.frame(
+  a = seq(n),
+  b = runif(n)
+)
+
+# rows first, column second - not ideal
+system.time(d[d$b > .5, ]$a)
+
+# column first, rows second - much better
+system.time(d$a[d$b > .5])
+```
+
+Worth it, right?
+
+Still, if you want to hone your skills as an R data frame ninja, I suggest learning `dplyr`. You can get a good overview on the [`dplyr` website](http://dplyr.tidyverse.org/) or really learn the ropes with online courses like DataCamp's [Data Manipulation in R with `dplyr`](https://www.datacamp.com/courses/dplyr-data-manipulation-r-tutorial).
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
