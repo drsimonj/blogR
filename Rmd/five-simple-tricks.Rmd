@@ -14,6 +14,8 @@ knitr::opts_chunk$set(
 )
 ```
 
+*This post was originally published on [DataCamp's community](https://www.datacamp.com/community/tutorials/five-tips-r-code-improve)*
+
 [\@drsimonj](https://twitter.com/drsimonj) here with five simple tricks I find myself sharing all the time with fellow R users to improve their code!
 
 ## 1. More fun to sequence from 1
