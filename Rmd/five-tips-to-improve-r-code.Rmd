@@ -14,9 +14,9 @@ knitr::opts_chunk$set(
 )
 ```
 
-*This post was originally published on [DataCamp's community](https://www.datacamp.com/community/tutorials/five-tips-r-code-improve)*
-
 [\@drsimonj](https://twitter.com/drsimonj) here with five simple tricks I find myself sharing all the time with fellow R users to improve their code!
+
+***This post was originally published on [DataCamp's community](https://www.datacamp.com/community/tutorials/five-tips-r-code-improve) as one of their top 10 articles in 2017***
 
 ## 1. More fun to sequence from 1
 
@@ -223,6 +223,8 @@ plot(x)
 ```
 
 This is typically a good solution to a problem that gets a lot of people mad. So save yourself a headache and `factor` that factor!
+
+> Aside, thanks to Amy Szczepanski who contacted me after the original publication of this article and mentioned `droplevels()`. Check it out if this is a problem for you!
 
 ## 5. First you get the `$`, then you get the power
 
