@@ -1,0 +1,245 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.height = 5,
+  fig.width = 6,
+  fig.align = "center",
+  fig.ext = "png"
+)
+```
+
+[\@drsimonj](https://twitter.com/drsimonj) here to share how I create and reuse corporate color palettes for ggplot2.
+
+You've started work as a data scientist at "drsimonj Inc" (congratulations, by the way) and PR have asked that all your Figures use the corporate colours. They send you the image below (coincidentally the [Metro UI colors on color-hex.com](http://www.color-hex.com/color-palette/700)):
+
+```{r corporate_swatch, echo = F}
+cols <- c(red = "#d11141", green = "#00b159", blue = "#00aedb", orange = "#f37735", yellow = "#ffc425", `light grey` = "#cccccc", `dark grey` = "#8c8c8c")
+
+n_seq <- seq_along(cols)
+image(1, n_seq, t(as.matrix(n_seq)), col = cols,
+          xlab = "", ylab = "", xaxt = "n", yaxt = "n", bty = "n",
+      main = "Corporate colors for drsimonj Inc")
+
+text(0.8, n_seq, names(cols), col = "white")
+text(1.2, n_seq, cols, col = "white")
+```
+
+You want to use these colours with ggplot2 while also making your code reusable and flexible.
+
+## Outline and setup
+
+We're going to create the following:
+
+1. Named vector of hex codes for the corporate colors
+2. Function to access hex codes (in 1)
+3. Named list of corporate color palettes (combinations of colors via 2)
+4. Function to access palettes (in 3)
+5. ggplot2-compatible scale functions that use the corporate palettes (via 4)
+
+Load the ggplot2 package and set a default theme to setup:
+
+```{r}
+library(ggplot2)
+
+theme_set(theme_minimal())
+```
+
+## Start with color
+
+Everything starts with colors. I like to first create a named vector of corporate colors like this:
+
+```{r}
+# drsimonj corporate colors
+drsimonj_colors <- c(
+  `red`        = "#d11141",
+  `green`      = "#00b159",
+  `blue`       = "#00aedb",
+  `orange`     = "#f37735",
+  `yellow`     = "#ffc425",
+  `light grey` = "#cccccc",
+  `dark grey`  = "#8c8c8c")
+```
+
+Any changes to these colors, or addition of new colors, are done in this vector.
+
+Tip: use back ticks to remove naming restrictions (e.g., to include spaces for \`light grey\` and \`dark grey\`).
+
+Next, write a function that extracts the hex codes from this vector by name.
+
+```{r}
+#' Function to extract drsimonj colors as hex codes
+#'
+#' @param ... Character names of drsimonj_colors 
+#'
+drsimonj_cols <- function(...) {
+  cols <- c(...)
+  
+  if (is.null(cols))
+    return (drsimonj_colors)
+  
+  drsimonj_colors[cols]
+}
+```
+
+This allows us to get hex colors in a robust and flexible way. For example, you can have all colors returned as they are, specify certain colors, in a particular order, add additional function arguments and checks, and so on:
+
+```{r}
+drsimonj_cols()
+
+drsimonj_cols("red")
+
+drsimonj_cols("red", "blue")
+
+drsimonj_cols("blue", "red")
+```
+
+It's already possible to use these manually in plots like this:
+
+```{r}
+ggplot(mtcars, aes(hp, mpg)) +
+    geom_point(color = drsimonj_cols("red"),
+               size = 4, alpha = .8)
+```
+
+## Combine colors into palettes
+
+Like all great organisations, drsimonj Inc has a few main colors (let's say blue, green, and yellow), but the full list (above) includes other official colors used for a variety of purposes. So we can now create palettes (various combinations) of these colors. Similar to how we deal with colors, first define a list like such:
+
+```{r}
+drsimonj_palettes <- list(
+  `main`  = drsimonj_cols("blue", "green", "yellow"),
+  
+  `cool`  = drsimonj_cols("blue", "green"),
+  
+  `hot`   = drsimonj_cols("yellow", "orange", "red"),
+  
+  `mixed` = drsimonj_cols("blue", "green", "yellow", "orange", "red"),
+  
+  `grey`  = drsimonj_cols("light grey", "dark grey")
+)
+```
+
+Changes or new color palettes are added in this list. We write a function to access and interpolate them like so:
+
+```{r}
+#' Return function to interpolate a drsimonj color palette
+#'
+#' @param palette Character name of palette in drsimonj_palettes
+#' @param reverse Boolean indicating whether the palette should be reversed
+#' @param ... Additional arguments to pass to colorRampPalette()
+#'
+drsimonj_pal <- function(palette = "main", reverse = FALSE, ...) {
+  pal <- drsimonj_palettes[[palette]]
+  
+  if (reverse) pal <- rev(pal)
+  
+  colorRampPalette(pal, ...)
+}
+```
+
+This function gets a pallete by name from the list (`"main"` by default), has a boolean condition determining whether to reverse the order or not, and additional arguments to pass on to `colorRampPallete()` (such as an `alpha` value). This returns another function:
+
+```{r}
+drsimonj_pal("cool")
+```
+
+This returned function will interpolate the palette colors for a certain number of levels, making it possible to create shades between our original colors. To demonstrate, we can interpolate the `"cool"` palette (which only includes two colors, green and blue) to a length of 10:
+
+```{r}
+drsimonj_pal("cool")(10)
+```
+
+These hex codes correspond to the following:
+
+```{r palette_fun_example, echo = F, fig.width = 8}
+cols <- drsimonj_pal("cool")(10)
+
+n_seq <- seq_along(cols)
+image(n_seq, 1, as.matrix(n_seq), col = cols,
+          xlab = "", ylab = "", xaxt = "n", yaxt = "n", bty = "n",
+      main = "Cool palette of drsimonj Inc, with 10 levels")
+
+text(n_seq, 1, cols, col = "white", srt = 90)
+```
+
+This is what we need to create custom ggplot2 scales.
+
+## Scales for ggplot2 
+
+We've now got the essentials to create custom `color` and `fill` scale functions for ggplot2. There are many ways to do this. I like the approach taken in packages like [`ochRe`](https://github.com/ropenscilabs/ochRe). One function is created for color and another for fill, and each contains a boolean argument for the relevant aesthetic being discrete or not. Here are my versions:
+
+```{r}
+#' Color scale constructor for drsimonj colors
+#'
+#' @param palette Character name of palette in drsimonj_palettes
+#' @param discrete Boolean indicating whether color aesthetic is discrete or not
+#' @param reverse Boolean indicating whether the palette should be reversed
+#' @param ... Additional arguments passed to discrete_scale() or
+#'            scale_color_gradientn(), used respectively when discrete is TRUE or FALSE
+#'
+scale_color_drsimonj <- function(palette = "main", discrete = TRUE, reverse = FALSE, ...) {
+  pal <- drsimonj_pal(palette = palette, reverse = reverse)
+  
+  if (discrete) {
+    discrete_scale("colour", paste0("drsimonj_", palette), palette = pal, ...)
+  } else {
+    scale_color_gradientn(colours = pal(256), ...)
+  }
+}
+
+#' Fill scale constructor for drsimonj colors
+#'
+#' @param palette Character name of palette in drsimonj_palettes
+#' @param discrete Boolean indicating whether color aesthetic is discrete or not
+#' @param reverse Boolean indicating whether the palette should be reversed
+#' @param ... Additional arguments passed to discrete_scale() or
+#'            scale_fill_gradientn(), used respectively when discrete is TRUE or FALSE
+#'
+scale_fill_drsimonj <- function(palette = "main", discrete = TRUE, reverse = FALSE, ...) {
+  pal <- drsimonj_pal(palette = palette, reverse = reverse)
+  
+  if (discrete) {
+    discrete_scale("fill", paste0("drsimonj_", palette), palette = pal, ...)
+  } else {
+    scale_fill_gradientn(colours = pal(256), ...)
+  }
+}
+```
+
+Each of these functions specifies a palette, whether the palette is being applied based on a discrete or numeric variable, whether to reverse the palette colors, and additional arguments to pass to the relevant ggplot2 function (which differs for discrete or numeric mapping).
+
+Let's see them in action.
+
+```{r}
+# Color by discrete variable using default palette
+ggplot(iris, aes(Sepal.Width, Sepal.Length, color = Species)) +
+    geom_point(size = 4) +
+    scale_color_drsimonj()
+# Color by numeric variable with cool palette
+ggplot(iris, aes(Sepal.Width, Sepal.Length, color = Sepal.Length)) +
+    geom_point(size = 4, alpha = .6) +
+    scale_color_drsimonj(discrete = FALSE, palette = "cool")
+# Fill by discrete variable with different palette + remove legend (guide)
+ggplot(mpg, aes(manufacturer, fill = manufacturer)) +
+    geom_bar() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    scale_fill_drsimonj(palette = "mixed", guide = "none")
+```
+
+## Package your work
+
+A really wonderful next step would be to put all this wonderful code into a package for easy access by you and others. If you're new to package development, I can't think of a better resource to get you started than [Hadley Wickham](https://twitter.com/hadleywickham)'s book, [R Packages](http://r-pkgs.had.co.nz/).
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
