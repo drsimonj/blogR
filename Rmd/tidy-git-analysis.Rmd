@@ -16,7 +16,7 @@ knitr::opts_chunk$set(
 
 [\@drsimonj](https://twitter.com/drsimonj) here to help you embark on git repo analyses!
 
-Ever wondered who contributes to git repos? How their contributions have changed over time? What sort of conventions different authors use in their commit messages? Maybe you've contributed to a [tidyverse](https://www.tidyverse.org/) project after following [Mara Averick](https://twitter.com/dataandme)'s [advice](https://www.rstudio.com/resources/videos/contributing-to-tidyverse-packages/) and wonder how you fit in?
+Ever wondered who contributes to git repos? How their contributions have changed over time? What sort of conventions different authors use in their commit messages? Maybe you were inspired by [Mara Averick](https://twitter.com/dataandme) to [contribute to tidyverse packages](https://www.rstudio.com/resources/videos/contributing-to-tidyverse-packages/) and wonder how you fit in?
 
 This post -- intended for intermediate R users -- will help you answer these sorts of questions using tidy R tools.
 
@@ -226,7 +226,7 @@ history_logs %>%
     labs(x = NULL, y = "Number of commits", caption = "Post by @drsimonj")
 ```
 
-The options are pretty endless here!
+Not surprising to see [Hadley Wikham](https://twitter.com/hadleywickham) topping the charts. Otherwise, the analysis options are pretty endless from here!
 
 # Part 3: Advanced Topics
 
