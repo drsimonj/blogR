@@ -1,0 +1,396 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.height = 6,
+  fig.width = 7,
+  fig.align = "center",
+  fig.ext = "png"
+)
+```
+
+[\@drsimonj](https://twitter.com/drsimonj) here to help you embark on git repo analyses!
+
+Ever wondered who contributes to git repos? How their contributions have changed over time? What sort of conventions different authors use in their commit messages? Maybe you've contributed to a [tidyverse](https://www.tidyverse.org/) project after following [Mara Averick](https://twitter.com/dataandme)'s [advice](https://www.rstudio.com/resources/videos/contributing-to-tidyverse-packages/) and wonder how you fit in?
+
+This post -- intended for intermediate R users -- will help you answer these sorts of questions using tidy R tools.
+
+Install and load these packages to follow along:
+
+```{r init-example, message = FALSE, warning = FALSE}
+# Parts 1 and 2
+library(tidyverse)
+library(glue)
+library(stringr)
+library(forcats)
+
+# Part 3
+library(tidygraph)
+library(ggraph)
+library(tidytext)
+```
+
+# Part 1: Git repo to a tidy data frame
+
+## Get a git repo
+
+We'll explore the open-source [ggplot2 repo](https://github.com/tidyverse/ggplot2) by copying it to our local machine with [`git clone`](https://git-scm.com/docs/git-clone), typically run on a command-line like:
+
+```{bash, eval = FALSE}
+git clone <repository_url> <directory>
+```
+
+Find the `<repository_url>` for [github.com](https://github.com/) projects by clicking "Clone or download".
+
+<img src="../ggplot2_gitclone.png">
+
+`<directory>` is optional but useful for us to clone into a specific location.
+
+The R code below clones the ggplot2 git repo into a temporary directory called `"git_repo"` (let [Alexander Matrunich](https://twitter.com/matrunich) teach you more about temp directories and files [here](http://rstat.consulting/blog/temporary-dir-and-files-in-r/?utm_content=buffer0d542&utm_medium=social&utm_source=twitter.com&utm_campaign=buffer)). `system()` invokes these commands from R (instead of using a command-line directly) and the [glue package](http://glue.tidyverse.org/) beautifully handles the strings for us.
+
+```{r, warning = TRUE}
+# Remote repository URL
+repo_url <- "https://github.com/tidyverse/ggplot2.git"
+
+# Directory into which git repo will be cloned
+clone_dir <- file.path(tempdir(), "git_repo")
+
+# Create command
+clone_cmd <- glue("git clone {repo_url} {clone_dir}")
+
+# Invoke command
+system(clone_cmd)
+```
+
+Check the directory contents:
+
+```{r}
+list.files(clone_dir)
+```
+
+## Get tidy git history
+
+You can now access the git history of the local repo using [`git log`](https://git-scm.com/docs/git-log) (making sure to target the right directory with `-C`). Examine the last few commits via:
+
+```{r, eval = F}
+system(glue('git -C {clone_dir} log -3'))
+```
+```{r, echo = F}
+cat(system(glue('git -C {clone_dir} log -3'), intern = TRUE), sep = '\n')
+```
+
+This default output is nice but difficult to parse. Fortunately, `git log` has the `--pretty` option, which the code below uses to create a command to return nicely formatted logs (learn more about log formatting [here](https://git-scm.com/book/en/v2/Git-Basics-Viewing-the-Commit-History)):
+
+```{r}
+log_format_options <- c(datetime = "cd", commit = "h", parents = "p", author = "an", subject = "s")
+option_delim <- "\t"
+log_format   <- glue("%{log_format_options}") %>% collapse(option_delim)
+log_options  <- glue('--pretty=format:"{log_format}" --date=format:"%Y-%m-%d %H:%M:%S"')
+log_cmd      <- glue('git -C {clone_dir} log {log_options}')
+log_cmd
+```
+
+This outputs each commit as a string of tab-separated values:
+
+```{r, eval = F}
+system(glue('{log_cmd} -3'))
+```
+```{r, echo = F}
+cat(system(glue('{log_cmd} -3'), intern = TRUE), sep = '\n')
+```
+
+The R code below executes this for the entire repo, captures the output (via `intern = TRUE`), splits commit strings into vectors of values (thanks to [stringr](http://stringr.tidyverse.org/)), and converts them to a named [tibble](http://tibble.tidyverse.org/).
+
+```{r}
+history_logs <- system(log_cmd, intern = TRUE) %>% 
+  str_split_fixed(option_delim, length(log_format_options)) %>% 
+  as_tibble() %>% 
+  setNames(names(log_format_options))
+
+history_logs
+```
+
+The entire git commit history is now a tidy data frame (tibble)! We'll finish this section with two minor additions.
+
+First, the `parents` column can contain space-separated strings when a commit was a merge of multiple, for example. The code below converts this to a list-column of character vectors (let [Jenny Bryan](https://twitter.com/JennyBryan) teach you more about this [here](https://www.rstudio.com/resources/videos/using-list-cols-in-your-dataframe/)):
+
+```{r}
+history_logs <- history_logs %>% 
+  mutate(parents = str_split(parents, " "))
+
+history_logs
+```
+
+Finally, be sure to assign branch numbers to commits. There's surely a better way to do this, but here's one (very untidy) method:
+
+```{r}
+# Start with NA
+history_logs <- history_logs %>% mutate(branch = NA_integer_)
+
+# Create a boolean vector to represent free columns (1000 should be plenty!)
+free_col <- rep(TRUE, 1000)
+
+for (i in seq_len(nrow(history_logs) - 1)) { # - 1 to ignore root
+  # Check current branch col and assign open col if NA
+  branch <- history_logs$branch[i]
+  
+  if (is.na(branch)) {
+    branch <- which.max(free_col)
+    free_col[branch] <- FALSE
+    history_logs$branch[i] <- branch
+  }
+  
+  # Go through parents
+  parents <- history_logs$parents[[i]]
+  
+  for (p in parents) {
+    parent_col <- history_logs$branch[history_logs$commit == p]
+    
+    # If col is missing, assign it to same branch (if first parent) or new
+    # branch (if other)
+    if (is.na(parent_col)) {
+      parent_col <- if_else(p == parents[1], branch, which.max(free_col))
+      
+    # If NOT missing this means a split has occurred. Assign parent the lowest
+    # and re-open both cols (parent closed at the end)
+    } else {
+      free_col[c(branch, parent_col)] <- TRUE
+      parent_col <- min(branch, parent_col)
+      
+    }
+    
+    # Close parent col and assign
+    free_col[parent_col] <- FALSE
+    history_logs$branch[history_logs$commit == p] <- parent_col
+  }
+}
+```
+
+We now also have branch values with `1` being the root.
+
+```{r}
+history_logs
+```
+
+This rounds off the section on getting a git commit history into a tidy data frame. Remove the local git repo, which is no longer needed:
+
+```{r}
+unlink(clone_dir, recursive = TRUE)
+```
+
+# Part 2: Tidy Analysis
+
+You're now ready to embark on a tidy git repo analysis! For example, which authors make the most commits?
+
+```{r}
+history_logs %>% 
+  count(author, sort = TRUE)
+```
+
+Some authors appear under different names, which we can quickly correct based on these top cases:
+
+```{r}
+history_logs <- history_logs %>% 
+  mutate(author = case_when(
+    str_detect(tolower(author), "hadley") ~ "Hadley Wickham",
+    str_detect(tolower(author), "kohske takahashi") ~ "Kohske Takahashi",
+    TRUE ~ str_to_title(author)
+  ))
+```
+
+Now, again, authors by commit frequency:
+
+```{r}
+history_logs %>% 
+  count(author) %>% 
+  arrange(desc(n))
+```
+
+And top-ten visualized with [ggplot2](http://ggplot2.tidyverse.org/reference/):
+
+```{r}
+history_logs %>% 
+  count(author) %>% 
+  top_n(10, n) %>% 
+  mutate(author = fct_reorder(author, n)) %>% 
+  ggplot(aes(author, n)) +
+    geom_col(aes(fill = n), show.legend = FALSE) +
+    coord_flip() +
+    theme_minimal() +
+    ggtitle("ggplot2 authors with most commits") +
+    labs(x = NULL, y = "Number of commits", caption = "Post by @drsimonj")
+```
+
+The options are pretty endless here!
+
+# Part 3: Advanced Topics
+
+I'd like to touch on two advanced topics before leaving you to embark on astounding git repo analyses.
+
+## Git repo as a relational graph
+
+A git history is a relational structure where commits are nodes and connections between them are directed edges (from parent to child).
+
+The code below converts our tidy data frame into a tidy relational structure made up of two data frames (nodes and edges) thanks to [tidygraph](https://github.com/thomasp85/tidygraph) (learn more from the package creator, [Thomas Lin Pedersen](https://twitter.com/thomasp85), in [blog posts like this](https://www.data-imaginist.com/2017/introducing-tidygraph/)).
+
+```{r}
+# Convert commit to a factor (for ordering nodes)
+history_logs <- history_logs %>% 
+  mutate(commit = factor(commit))
+
+# Nodes are the commits (keeping relevant info)
+nodes <- history_logs %>% 
+  select(-parents) %>% 
+  arrange(commit)
+
+# Edges are connections between commits and their parents
+edges <- history_logs %>% 
+  select(commit, parents) %>% 
+  unnest(parents) %>% 
+  mutate(parents = factor(parents, levels = levels(commit))) %>% 
+  transmute(from = as.integer(parents), to = as.integer(commit)) %>% 
+  drop_na()
+
+# Create tidy directed graph object
+git_graph <- tbl_graph(nodes = nodes, edges = edges, directed = TRUE)
+```
+```{r}
+git_graph
+```
+
+Using [ggraph](https://github.com/thomasp85/ggraph) (another of Thomas' awesome packages with more detailed info in [posts like this](https://www.data-imaginist.com/2017/ggraph-introduction-layouts/)) a default visualization could look something like this:
+
+```{r}
+git_graph %>% 
+  ggraph() +
+    geom_edge_link(alpha = .1) +
+    geom_node_point(aes(color = factor(branch)), alpha = .3) +
+    theme_graph() +
+    theme(legend.position = "none")
+```
+
+This looks cool but not right! A `"manual"` layout is needed for a linear visualisation of the git history (see the [dplyr network](https://github.com/tidyverse/dplyr/network) for example).
+
+For convenience, this is a template pipeline that will take the tidy graph object, ensure the proper layout is used, and create the basic plot:
+
+```{r}
+ggraph_git <- . %>%
+  # Set node x,y coordinates
+  activate(nodes) %>% 
+  mutate(x = datetime, y = branch) %>% 
+  # Plot with correct layout
+  create_layout(layout = "manual", node.positions = as_tibble(activate(., nodes))) %>% 
+  {ggraph(., layout = "manual") + theme_graph() + labs(caption = "Post by @drsimonj")}
+```
+
+Using this pipeline:
+
+```{r}
+git_graph %>% 
+  ggraph_git() +
+    geom_edge_link(alpha = .1) +
+    geom_node_point(aes(color = factor(branch)), alpha = .3) +
+    theme(legend.position = "none") +
+    ggtitle("Commit history of ggplot2")
+```
+
+Much better! You can go crazy with how you'd like to visualise the repo. For example, here we filter on a specific date range:
+
+```{r}
+git_graph %>% 
+  activate(nodes) %>% 
+  filter(datetime > "2015-11-01", datetime < "2016-08-01") %>% 
+  ggraph_git() +
+    geom_edge_link(alpha = .1) +
+    geom_node_point(aes(color = factor(branch)), alpha = .3) +
+    theme(legend.position = "none") +
+    ggtitle("Git history of ggplot2",
+            subtitle = "2015-11 to 2016-08")
+```
+
+Here commits are highlighted for the top authors:
+
+```{r}
+# 10 most-common authors
+top_authors <- git_graph %>% 
+  activate(nodes) %>% 
+  as_tibble() %>% 
+  count(author, sort = TRUE) %>% 
+  top_n(10, n) %>% 
+  pull(author)
+
+# Plot
+git_graph %>% 
+  activate(nodes) %>%
+  filter(datetime > "2015-11-01", datetime < "2016-08-01") %>% 
+  mutate(author = factor(author, levels = top_authors),
+         author = fct_explicit_na(author, na_level = "Other")) %>% 
+  ggraph_git() +
+    geom_edge_link(alpha = .1) +
+    geom_node_point(aes(color = author), alpha = .3) +
+    theme(legend.position = "bottom") +
+    ggtitle("ggplot2 commits by author",
+            subtitle = "2015-11 to 2016-08")
+```
+
+I hope this gives you enough to start having fun with these sorts of visualisations!
+
+## Text Mining Commit Messages
+
+Commit messages are simple but great material for tidy text-mining tools like the brilliant [tidytext package](https://github.com/juliasilge/tidytext), best learned from [Text Mining with R: A Tidy Approach](https://www.tidytextmining.com/), by [Julia Silge](https://twitter.com/juliasilge) and [David Robinson](https://twitter.com/drob). Here are some examples using commit subjects to get you started.
+
+Get commit subjects into a tidy format and remove stop words.
+
+```{r}
+data(stop_words)
+
+tidy_subjects <- history_logs %>%
+  unnest_tokens(word, subject) %>% 
+  anti_join(stop_words)
+
+tidy_subjects
+```
+
+What are the ten most frequently used words?
+
+```{r}
+tidy_subjects %>%
+  count(word) %>% 
+  top_n(10, n) %>% 
+  mutate(word = fct_reorder(word, n)) %>% 
+  ggplot(aes(word, n)) +
+    geom_col(aes(fill = n), show.legend = FALSE) +
+    coord_flip() +
+    theme_minimal() +
+    ggtitle("Most-used words in ggplot2 commit subjects") +
+    labs(x = NULL, y = "Word frequency", caption = "Post by @drsimonj")
+```
+
+Or how about the words that most-frequently follow "fix", the most-used word:
+
+```{r}
+history_logs %>% 
+  select(commit, author, subject) %>% 
+  unnest_tokens(bigram, subject, token = "ngrams", n = 2) %>% 
+  separate(bigram, c("word1", "word2"), sep = " ") %>% 
+  filter(word1 == "fix") %>%
+  anti_join(stop_words, by = c("word2" = "word")) %>% 
+  count(word2, sort = TRUE)
+```
+
+Unsurprisingly, it seems like many of the commits involve fixing bugs and typos, as well as challenges with geoms and guides.
+
+We've now covered more than enough for you to explore and analyse git repos in a tidy R framework. Don't forget to share your findings with the world and let me know about it!
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
