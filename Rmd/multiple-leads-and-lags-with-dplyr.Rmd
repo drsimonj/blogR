@@ -1,0 +1,58 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.height = 3,
+  fig.width = 4,
+  fig.align = "center",
+  fig.ext = "png"
+)
+```
+
+[\@drsimonj](https://twitter.com/drsimonj) here to share a method for adding multiple leads or lags to a data frame using only dplyr functions.
+
+Specifically, the challenge we'll address is to take an ordered data frame like this:
+
+```{r, echo = F}
+set.seed(20171223)
+n_times <- 5
+eg_dat  <- data.frame(x = seq(n_times))
+eg_dat
+```
+
+And use dplyr to programtically add multiple lags or leads like this:
+
+```{r, echo = F, warning = F}
+suppressPackageStartupMessages(library(dplyr))
+lag_ns <- seq(4)
+lag_names <- paste("lag", formatC(lag_ns, width = nchar(max(lag_ns)), flag = "0"), sep = "_")
+lag_functions <- setNames(paste("lag(., ", lag_ns, ")"), lag_names)
+
+eg_dat %>% 
+  mutate_at(vars(x), funs_(lag_functions))
+```
+
+## Why dplyr?
+
+Before we dive into code, I want to explain the focus on dplyr.
+
+I needed a solution to this problem to do autocorrelations (specifically conduct tests of [Granger causality](https://en.wikipedia.org/wiki/Granger_causality)) on an extremely large data set stored in Hadoop. The data is too large to maintain in local memory, so I interact with it via R thanks to the truly awesome [sparklyr](http://spark.rstudio.com/) package. For the most part, I use dplyr functions which sparklyr converts to Spark SQL.
+
+One solution to the "multiple lags with dplyr" problem I could find was an answer to [this StackOverflow question](https://stackoverflow.com/questions/38119225/debugging-function-to-create-multiple-lags-for-multiple-columns-dplyr), which ends up having a data.table answer. I've also noticed that staying within the Tidyverse typically results in the use of purrr ([example post](https://stackoverflow.com/questions/29614849/dplyrmutate-to-add-multiple-values)).
+
+With sparklyr, `spark_apply()` can distribute data.table or purrr code across the cluster, but I still find this to be relatively inefficient and unworkable. I needed code that could be easily distributed and executed across the clusters, and using only dplyr was my best bet!
+
+## 
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
