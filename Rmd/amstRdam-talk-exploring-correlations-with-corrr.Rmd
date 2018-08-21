@@ -1,0 +1,384 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.height = 3,
+  fig.width = 4,
+  fig.align = "center",
+  fig.ext = "png"
+)
+```
+
+[\@drsimonj](https://twitter.com/drsimonj) here to share a (sort of) readable version of [my presentation at the amst-R-dam meetup](https://www.meetup.com/en-AU/amst-R-dam/events/251102944/) on 14 August, 2018: "Exploring correlations in R with corrr".
+
+Those who attended will know that I changed the topic of the talk, originally advertised as "R from academia to commerical business". For anyone who's interested, I gave that talk at useR! 2018 and, thanks to the R consortium, you can watch it [here](https://www.youtube.com/embed/3eqJj7mj7lA). I also gave a "Wrangling data in the Tidyverse" tutorial that you can follow at [Part 1](https://www.youtube.com/embed/E-Vvg8uzcVM) and [Part 2](https://www.youtube.com/embed/DwWH1mTerOc).
+
+# The story of corrr
+
+Moving to corrr --- the first package I ever created. It started when I was a postgrad student studying individual differences in decision making. My research data was responses to test batteries. My statistical bread and butter was regression-based techniques like multiple regression, path analysis, factor analysis (EFA and CFA), and structural equation modelling.
+
+I spent a lot of time exploring correlation matrices to make model decisions, and diagnose poor fits or unexpected results! If you need proof, check out some of the correlations tables published in my academic papers like ["Individual Differences in Decision Making Depend on Cognitive Abilities, Monitoring and Control"](https://onlinelibrary.wiley.com/doi/abs/10.1002/bdm.1939)
+
+# How to explore correlations?
+
+To illustrate some of the challenges I was facing, let's try explore some correlations with some very fancy data:
+
+```{r}
+d <- mtcars
+d$hp[3] <- NA
+head(d)
+```
+
+We could be motivated by [multicollinearity](https://en.wikipedia.org/wiki/Multicollinearity):
+
+```{r}
+fit_1 <- lm(mpg ~ hp,        data = d)
+fit_2 <- lm(mpg ~ hp + disp, data = d)
+```
+```{r}
+summary(fit_1)
+```
+```{r}
+summary(fit_2)
+```
+
+Strange result. Let's check the correlations between `mpg`, `hp`, and `disp` to try and diagnose this problem. It should be simple using the base R function, `cor()`. Right?
+
+Err, what is with all the `NA`'s ?
+
+```{r}
+rs <- cor(d)
+rs
+```
+
+Check the help page [`?cor`](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/cor.html). Not so obvious. Default is `use = "everything"`, and buried down in the details:
+
+> If use is "everything", NAs will propagate conceptually, i.e., a resulting value will be NA whenever one of its contributing observations is NA.
+
+Have to handle missing values with `use`:
+
+```{r}
+rs <- cor(d, use = "pairwise.complete.obs")
+rs
+```
+
+Can we focus on subset with dplyr? Nope.
+
+```{r, message = FALSE, error = TRUE}
+dplyr::select(rs, mpg, hp, disp)
+```
+
+Riiiiiight! It's a matrix and dplyr is for data frames.
+
+```{r}
+class(rs)
+```
+
+So we can use square brackets with matrices? Or not...
+
+```{r}
+vars <- c("mpg", "hp", "disp")
+rs[rownames(rs) %in% vars]
+```
+
+Mm, square brackets can take on different functions with matrices. Without a comma, it's treated like a vector. With a comma, we can separately specify the dimensions.
+
+```{r}
+vars <- c("mpg", "hp", "disp")
+rs[rownames(rs) %in% vars, colnames(rs) %in% vars]
+```
+
+Aha! High correlation between input variables (multicollinearity).
+
+But seriously, this syntax is pretty ugly.
+
+```{r, eval = F}
+vars <- c("mpg", "hp", "disp")
+rs[rownames(rs) %in% vars, colnames(rs) %in% vars]
+```
+
+We diagnosed our multicollinearity problem. What if we want to something a bit more complex like exploring clustering of variables in high dimensional space? Could use exploratory factor analysis.
+
+```{r}
+factanal(na.omit(d), factors = 2)
+```
+```{r}
+factanal(na.omit(d), factors = 5)
+```
+
+So many questions! I'd much rather explore the correlations.
+
+Let's try to find all variables with a correlation greater than 0.90. Why doesn't this work?!
+
+```{r}
+col_has_over_90 <- apply(rs, 2, function(x) any(x > .9))
+rs[, col_has_over_90]
+```
+
+The diagonal is 1. All cols have a value greater than .90!
+
+Exclude diagonal:
+
+```{r}
+diag(rs) <- NA
+col_has_over_90 <- apply(rs, 2, function(x) any(x > .9, na.rm = TRUE))
+rs[, col_has_over_90]
+```
+
+Again, this syntax is pretty gross. Imagine showing this to a beginner and asking them to write down as much as they remember. Probably not much would be my guess.
+
+What about vizualising correlations? I'd suggest giving up at this point.
+
+## Exploring data with the tidyverse
+
+Remember me as postgrad? I'd discovered the tidyverse and really liked it, because *exploring* data with the tidyverse is easy.
+
+```{r, message=F, warning=F, fig.height=3}
+library(tidyverse)
+d %>% 
+  select(mpg:drat) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+    geom_histogram() +
+    facet_wrap(~key, scales = "free")
+```
+
+Can't we have this for correlations? I don't want to do any crazy mathematical operations or statistical tests. I just want to quickly explore the value. It's not a big ask.
+
+Good news! This is why I developed corrr as a tidyverse-style package for exploring correlations in R.
+
+# [corrr](http://github.com/drsimonj/corrr/)
+
+Here's a quick example to get a feel for the syntax:
+
+```{r, fig.height=3, warning=FALSE}
+library(corrr)
+d %>% 
+  correlate() %>% 
+  focus(mpg:drat, mirror = TRUE) %>% 
+  network_plot()
+```
+
+The first objective of corrr was to write a new function that uses `cor()` but:
+
+- Handles missing by default with `use = "pairwise.complete.obs"`
+- Stops diagonal from getting in the way by setting it to `NA`
+- Makes it possible to use tidyverse tools by returning a `data.frame` instead of a `matrix`
+
+Now, meet `correlate()`
+
+```{r}
+rs <- correlate(d)
+rs
+```
+
+Same args as `cor()` with some extras
+
+```{r}
+correlate(d, method = "spearman", diagonal = 1)
+```
+
+The output of `correlate()`
+
+- A helpful message to remind us of what's happening (turned off with `quiet = TRUE`)
+- A correlation data frame (tibble) with class `cor_df` and:
+    - Diagonals set to `NA` (adjusted via `diagonal = NA`)
+    - A `"rowname"` colum rather than rownames (more [here](https://adv-r.hadley.nz/vectors-chap.html#rownames))
+
+It's now super easy to pipe straight into tidyverse functions that work with data frames. For example:
+
+```{r, message = F, warning = F, fig.height = 3}
+rs %>% 
+  select(mpg:drat) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+    geom_histogram() +
+    facet_wrap(~key)
+```
+
+How about that challenge to find cols with a correlation greater than .9?
+
+```{r}
+any_over_90 <- function(x) any(x > .9, na.rm = TRUE)
+rs %>% select_if(any_over_90)
+```
+
+Here's a diagram to get you started after `library(corrr)`:
+
+<!-- <img src="imgs/corrr_flow.png"; style="max-height:500px;"> -->
+
+## Correlation data frames are not tidy
+
+Tidy data functions target columns OR rows, but I found myself frequently wanting to make changes to both. So next came the ability to `focus()` on columns and rows. This function acts just like dplyr's `select()`, but also excludes the selected colums from the rows (or everything else with the `mirror` argument).
+
+```{r}
+rs %>% 
+  focus(mpg, disp, hp)
+```
+
+```{r}
+rs %>% 
+  focus(-mpg, -disp, -hp)
+```
+
+```{r}
+rs %>% 
+  focus(mpg, disp, hp, mirror = TRUE)
+```
+
+```{r}
+rs %>% 
+  focus(matches("^d"))
+```
+
+```{r}
+rs %>% 
+  focus_if(any_over_90, mirror = TRUE)
+```
+
+One of my favourite uses is to `focus()` on correlations of one variable with all others and plot the results.
+
+```{r}
+rs %>% 
+  focus(mpg)
+```
+
+```{r, fig.height = 4}
+rs %>%
+  focus(mpg) %>%
+  mutate(rowname = reorder(rowname, mpg)) %>%
+  ggplot(aes(rowname, mpg)) +
+    geom_col() + coord_flip()
+```
+
+You can also `rearrange()` the entire data frame based on clustering algorithms:
+
+```{r}
+rs %>% rearrange()
+```
+
+Or `shave()` the upper/lower triangle to missing values
+
+```{r}
+rs %>% shave()
+```
+
+Or `stretch()` into a more tidy format
+
+```{r}
+rs %>% stretch()
+```
+
+And combine with tidyverse to do things like get a histogram of all correlations:
+
+```{r, fig.height=4}
+rs %>%
+  shave() %>% 
+  stretch(na.rm = FALSE) %>% 
+  ggplot(aes(r)) +
+    geom_histogram()
+```
+
+As a tidyverse-style package, it's important that the functions take a **`data.frame` in, `data.frame` out** principle. This let's you flow through pipelines and intermix functions from many packages with ease.
+
+```{r}
+rs %>%
+  focus(mpg:drat, mirror = TRUE) %>% 
+  rearrange() %>% 
+  shave(upper = FALSE) %>% 
+  select(-hp) %>% 
+  filter(rowname != "drat")
+```
+
+## Seems cool, but it's still hard to get quick insights
+
+corrr also provides some helpful methods to interpret/visualize the correlations. You can get `fashion`able:
+
+```{r}
+rs %>% fashion()
+```
+
+```{r}
+rs %>%
+  focus(mpg:drat, mirror = TRUE) %>% 
+  rearrange() %>% 
+  shave(upper = FALSE) %>% 
+  select(-hp) %>% 
+  filter(rowname != "drat") %>% 
+  fashion()
+```
+
+Make an `rplot()`
+
+```{r}
+rs %>% rplot()
+```
+
+```{r}
+rs %>%
+  rearrange(method = "MDS", absolute = FALSE) %>%
+  shave() %>% 
+  rplot(shape = 15, colors = c("red", "green"))
+```
+
+Or make a `network_plot()`
+
+```{r}
+rs %>% network_plot(min_cor = .6)
+```
+
+But if you want to get custom, check out [my blog post combining corrr with ggraph](https://drsimonj.svbtle.com/how-to-create-correlation-network-plots-with-corrr-and-ggraph).
+
+
+## Latest addition by [Edgar Ruiz](https://github.com/edgararuiz)
+
+So corrr was starting to look pretty good, but these days it's not all me. There are [three official contributors](https://github.com/drsimonj/corrr/graphs/contributors), and many others who took the time to raise [issues that identified bugs or suggested features](https://github.com/drsimonj/corrr/issues?utf8=%E2%9C%93&q=is%3Aissue).
+
+One of the latest editions by Edgar Ruiz lets you `correlate()` data frames in databases. To demonstrate (copying Edgar's vignette), here's a simple SQLite database with data pointer, `db_mtcars`:
+
+```{r}
+con <- DBI::dbConnect(RSQLite::SQLite(), path = ":dbname:")
+db_mtcars <- copy_to(con, mtcars)
+class(db_mtcars)
+```
+
+`correlate()` detects DB backend, uses `tidyeval` to calculate correlations in the database, and returns correlation data frame.
+
+```{r}
+db_mtcars %>% correlate(use = "complete.obs")
+```
+
+```{r, include=FALSE}
+DBI::dbDisconnect(con)
+```
+
+Here's another example using spark:
+
+```{r, warning = FALSE}
+sc <- sparklyr::spark_connect(master = "local")
+mtcars_tbl <- copy_to(sc, mtcars)
+correlate(mtcars_tbl, use = "complete.obs")
+```
+
+```{r, include=FALSE}
+sparklyr::spark_disconnect(sc)
+```
+
+So no data is too big for corrr now! This opens up some nice possibilities. For example, most regression-based modelling packages (like [lavaan](http://lavaan.ugent.be/)) cannot operate on large data sets in a database. However, they typically accept a correlation matrix as input. So you can use corrr to extract correlations from large data sets and do more complex modelling in memory.
+
+## Thanks Simon, but I'm not interested.
+
+In case corrr doesn't float your boat, some other packages you might be interested in are [corrplot](https://cran.r-project.org/web/packages/corrplot/vignettes/corrplot-intro.html) for `rplot()` style viz, and [widyr](https://github.com/dgrtwo/widyr) for a more general way to handle relational data sets in a tidy framework.
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
