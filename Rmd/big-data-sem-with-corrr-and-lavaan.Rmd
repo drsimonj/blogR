@@ -1,0 +1,100 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/",
+  fig.height = 3,
+  fig.width = 4,
+  fig.align = "center",
+  fig.ext = "png"
+)
+```
+
+[\@drsimonj](https://twitter.com/drsimonj) here to show you how to do [structural equation modeling](https://en.wikipedia.org/wiki/Structural_equation_modeling) with big, even massive distributed data in R by combining [corrr](https://github.com/drsimonj/corrr) and [lavaan](http://lavaan.ugent.be/).
+
+## Background
+
+Structural equation modeling (SEM) is a general statistical framework for hypothesis testing that might involve [latent variables](https://en.wikipedia.org/wiki/Latent_variable) &emdash; things that cannot be directly observed but must be inferred &emdash; and can combine techniques like path analysis, factor analysis, and growth curve models. SEM is widely used in psychology and the social sciences because most phenomena of interest in these areas are latent in nature. Typical examples are intelligence, personality, and depression, which must be inferred from people's behaviour. Fun fact for psychologists, my academic lineage can be traced back to [Charles Spearman](https://en.wikipedia.org/wiki/Charles_Spearman), who's known as the inventor of factor analysis and for his seminal work on general intelligence. Other readers will know him for [Spearman's rank correlation coefficient](https://en.wikipedia.org/wiki/Spearman%27s_rank_correlation_coefficient).
+
+I've also observed SEM is being used in commerical setting like marketing. It's no surprise to me as many commercial setting are interested in latent psychological constructs like customer satisfaction and loyalty. SEM is a great way to model these sorts of variables to test hypotheses and inform decision making.
+
+From this point on, I'll assume you know a bit about SEM, why it's useful, and how to interpret the results.
+
+## A motivating example
+
+```{r}
+# Download data
+# temp <- tempfile()
+# download.file("http://openpsychometrics.org/_rawdata/NPAS-data.zip", temp, mode="wb")
+# d <- read.table(unz(temp, "BIG5/data.csv"), header = TRUE, sep="\t")
+# unlink(temp); rm(temp)
+```
+
+```{r}
+library(tidyverse)
+library(lavaan)
+library(corrr)
+```
+```{r}
+d <- mtcars
+head(d)
+```
+```{r}
+model <- ("
+  latent_a =~ gear + drat + wt
+  latent_b =~ hp + carb + qsec
+
+  latent_a ~ latent_b
+")
+```
+```{r}
+fit <- sem(model, data = scale(d))
+```
+```{r}
+summary(fit, standardized = TRUE)
+```
+
+## Big data is tough for SEM
+
+There are a few software options when it comes to SEM. The paid options I've been most familiar with are [IBM SPSS AMOS](https://www.ibm.com/hr-en/marketplace/structural-equation-modeling-sem) and [Mplus](https://www.statmodel.com/). However, not long after I started using R, I quickly transitioned to [lavaan](http://lavaan.ugent.be/). Other than being free, it comes with all the usual advantages of using R over point-and-click software like SPSS (though the learning curve makes entry for beginners a bit harder). In this post we'll be doing SEM with lavaan.
+
+The problem with lavaan (or most other software for that matter) is that it tends to be limited to data that fits in memory. This poses a problem for very large data sets stored in databases. Fortunately, there's a solution to this problem.
+
+## SEM just needs correlations
+
+SEM operates on the variance-covariance matrix of your variables. Most indices of model fit are based on a comparison of the variance-covariance matrix estimated by your model and the true matrix. This makes dealing with big data manageable. We don't need the entire data set! All we need is the variance-covariance matrix and sample size.
+
+In R, the [corrr](https://github.com/drsimonj/corrr) package allows you to calculate correlations in databases thanks to a recent addition by [Edgar Ruiz](https://github.com/edgararuiz) that is already available on CRAN (version 0.3.0).
+
+## Database
+
+```{r}
+con <- DBI::dbConnect(RSQLite::SQLite(), path = ":dbname:")
+db_data <- copy_to(con, d)
+```
+
+```{r}
+db_correlations <- correlate(db_data, use = "complete.obs")
+```
+```{r}
+# Make the diagonal 1 (this is a bit convoluted!)
+correlations <- db_correlations %>% 
+  as_matrix() %>% 
+  as_cordf(diagonal = 1)
+correlations
+```
+
+
+
+
+## Sign off
+
+Thanks for reading and I hope this was useful for you.
+
+For updates of recent blog posts, follow [\@drsimonj](https://twitter.com/drsimonj) on Twitter, or email me at <drsimonjackson@gmail.com> to get in touch.
+
+If you'd like the code that produced this blog, check out the [blogR GitHub repository](https://github.com/drsimonj/blogR).
